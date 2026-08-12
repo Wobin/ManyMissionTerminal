@@ -2,12 +2,12 @@
 Name: Many Mission Terminal
 Author: Wobin
 Date: 13/08/2026
-Version: 1.1.0
+Version: 1.1.1
 Repository: https://github.com/Wobin/ManyMissionTerminal
 --]]
 
 local mod = get_mod("Many Mission Terminal")
-mod.version = "1.1.0"
+mod.version = "1.1.1"
 
 local MMT = get_mod("ManyMoreTry")
 local MissionBoardViewSettings = require("scripts/ui/views/mission_board_view/mission_board_view_settings")
@@ -1158,6 +1158,16 @@ mod.mmt_tune_badge = function (dx, dy)
 	end
 
 	return badge_dx, badge_dy
+end
+
+local function board_ui_hidden(view)
+	if not view or view._mission_board_options or view._is_loading then
+		return true
+	end
+
+	local mission_list = view:_element("mission_list")
+
+	return mission_list ~= nil and mission_list:visible() == true
 end
 
 local function hide_badges_from(index)
@@ -3098,16 +3108,7 @@ set_filter_open = function (view, open)
 end
 
 local function filter_panel_visible(view)
-	if view._mission_board_options or view._is_loading then
-		return false
-	end
-
-	local mission_list = view:_element("mission_list")
-	if mission_list and mission_list:visible() then
-		return false
-	end
-
-	return true
+	return not board_ui_hidden(view)
 end
 
 local function update_filter_panel(view, dt)
@@ -3393,6 +3394,18 @@ end)
 mod:hook_safe(CLASS.MissionBoardView, "update", function (self, dt)
 	refresh_now()
 
+	if show_all_missions and board_ui_hidden(self) then
+		hide_badges_from(1)
+
+		if expanded_map then
+			collapse_expanded(self)
+		end
+
+		if tooltip_widget then
+			tooltip_widget.visible = false
+		end
+	end
+
 	if show_all_missions then
 		local intrusion = panel_intrusion(self)
 
@@ -3415,6 +3428,10 @@ end)
 
 mod:hook(CLASS.MissionBoardView, "_set_selected", function (func, self, id, ...)
 	if not show_all_missions then
+		return func(self, id, ...)
+	end
+
+	if board_ui_hidden(self) then
 		return func(self, id, ...)
 	end
 
