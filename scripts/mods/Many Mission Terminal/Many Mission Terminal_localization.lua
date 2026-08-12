@@ -118,7 +118,13 @@ return {
 		ru = "Волны спецсил",
 		["zh-tw"] = "特殊敵人潮",
 	},
-	cond_witches = {
+	cond_daemonhosts = {
+		en = "Daemonhosts",
+		["zh-cn"] = "恶魔宿主",
+		ru = "Одержимые демоном",
+		["zh-tw"] = "惡魔宿主",
+	},
+	cond_poxbursters = {
 		en = "Poxbursters",
 		["zh-cn"] = "瘟疫爆破者",
 		ru = "Чумные бомбы",

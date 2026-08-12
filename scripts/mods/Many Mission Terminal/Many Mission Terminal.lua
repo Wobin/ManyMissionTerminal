@@ -1,13 +1,13 @@
 --[[
 Name: Many Mission Terminal
 Author: Wobin
-Date: 03/08/2026
-Version: 1.0.0
+Date: 13/08/2026
+Version: 1.1.0
 Repository: https://github.com/Wobin/ManyMissionTerminal
 --]]
 
 local mod = get_mod("Many Mission Terminal")
-mod.version = "1.0.0"
+mod.version = "1.1.0"
 
 local MMT = get_mod("ManyMoreTry")
 local MissionBoardViewSettings = require("scripts/ui/views/mission_board_view/mission_board_view_settings")
@@ -27,44 +27,49 @@ local Archive = mod:io_dofile("Many Mission Terminal/scripts/mods/Many Mission T
 local GRID_COLS = C.GRID_COLS
 local GRID_ROWS = C.GRID_ROWS
 local GRID_X0 = C.GRID_X0
-local GRID_X1 = C.GRID_X1
-local GRID_ROW_Y = C.GRID_ROW_Y
 local TILE_SCALE = C.TILE_SCALE
-local BANNER_GAP = C.BANNER_GAP
-local BADGE_TEXT_BOUNDS = C.BADGE_TEXT_BOUNDS
+
+local set_filter_open
+
+local LAYOUT = {
+	shift = 0,
+	scale = C.TILE_SCALE,
+	step_x = (C.GRID_X1 - C.GRID_X0) / (C.GRID_COLS - 1),
+	intrusion = 0,
+	pin_shifts_grid = true,
+	cols = C.GRID_COLS,
+	rows = C.GRID_ROWS,
+	row_y = C.GRID_ROW_Y,
+	pinned_cols = 6,
+	pinned_rows = 4,
+	spread = 1.03,
+	step_trim = 12,
+	max_scale = 1.0,
+	edge_margin = 8,
+	margin_right = 100,
+	margin_bottom = 10,
+	min_bottom = 400,
+	margin_left = 10,
+	glow_w = 300,
+	pin_nudge = 0.2,
+	vspread = 1.0,
+}
 local PLAIN_STYLES = C.PLAIN_STYLES
-local GRADIENT_STYLES = C.GRADIENT_STYLES
-local NOTABLE_CATEGORY = C.NOTABLE_CATEGORY
 local CATEGORY_ORDER = C.CATEGORY_ORDER
 local TILE_BOX_W = C.TILE_BOX_W
 local TILE_BOX_H = C.TILE_BOX_H
 local TILE_PLATE_W = C.TILE_PLATE_W
-local TILE_PLATE_H = C.TILE_PLATE_H
-local GRID_CENTRE_X = C.GRID_CENTRE_X
-local GRID_CENTRE_Y = C.GRID_CENTRE_Y
-local EXPAND_SCALE = C.EXPAND_SCALE
-local EXPAND_COLS = C.EXPAND_COLS
-local EXPAND_SPACING_X = C.EXPAND_SPACING_X
-local EXPAND_SPACING_Y = C.EXPAND_SPACING_Y
-local EXPAND_SLOT_RESERVE = C.EXPAND_SLOT_RESERVE
 local FADE_ALPHA = C.FADE_ALPHA
-local EXPAND_Z = C.EXPAND_Z
 local HORIZON_MINUTES = C.HORIZON_MINUTES
 local MTABLE = C.MTABLE
-local SIDE_ICONS = C.SIDE_ICONS
-local BOOKMARK_ICON = C.BOOKMARK_ICON
-local CONDITION_ICONS = C.CONDITION_ICONS
-local CONDITION_TAGS = C.CONDITION_TAGS
 local BADGE = C.BADGE
 local TOOLTIP = C.TOOLTIP
 local SCRIM = C.SCRIM
 local FILTER = C.FILTER
 local FILTER_CATEGORIES = C.FILTER_CATEGORIES
 local FILTER_CONDITIONS = C.FILTER_CONDITIONS
-local LIVE_BAR_COLOR = C.LIVE_BAR_COLOR
 local EXPIRED_BAR_COLOR = C.EXPIRED_BAR_COLOR
 local FADE_COLOR_KEYS = C.FADE_COLOR_KEYS
-local INCOMPATIBLE_MODS = C.INCOMPATIBLE_MODS
 
 local mission_is_live = Missions.mission_is_live
 local minutes_past_expiry = Missions.minutes_past_expiry
@@ -95,15 +100,26 @@ local tooltip_card
 local badge_widgets = {}
 local badge_dx = BADGE.dx
 local badge_dy = BADGE.dy
-local table_widgets = {}
-local table_rows = {}
-local table_row_count = 0
-local table_source_count = 0
-local table_dx = MTABLE.dx
-local table_dy = MTABLE.dy
 local next_expiry_scan = 0
-local table_cell_cx = {}
-local table_slot_cx = {}
+local table_ui = {
+	widgets = {},
+	rows = {},
+	row_count = 0,
+	source_count = 0,
+	dx = MTABLE.dx,
+	dy = MTABLE.dy,
+	cell_cx = {},
+	slot_cx = {},
+}
+
+local filter_ui = {
+	open = false,
+	slide = 0,
+	rows = {},
+	row_widgets = {},
+	scan_dirty = true,
+}
+
 local TABLE_CELLS = {
 	"type",
 	"cond",
@@ -130,18 +146,6 @@ local function refresh_saved_ids()
 		end
 	end
 end
-local filter_state
-local filter_conditions_by_circumstance
-local filter_open = false
-local filter_slide = 0
-local filter_rows = {}
-local filter_signature
-local filter_scan_key
-local filter_scan_page
-local filter_panel_widget
-local filter_tab_widget
-local filter_row_widgets = {}
-local filter_colors
 
 local function refresh_settings()
 	show_all_missions = mod:get("show_all_missions") == true
@@ -178,6 +182,18 @@ local function backup_vanilla_slots()
 	end
 end
 
+local ROT_NEAR = 33.75
+local ROT_FAR = 60
+local ROT_SWEEP = 1000 / 1200
+
+local function slot_rotation(col, row)
+	local last_col = math.max(LAYOUT.cols - 1, 1)
+	local last_row = math.max(LAYOUT.rows - 1, 1)
+	local base = ROT_NEAR + (row - 1) / last_row * (ROT_FAR - ROT_NEAR)
+
+	return base * (1 - col / last_col * ROT_SWEEP)
+end
+
 local function apply_grid_slots(enabled)
 	backup_vanilla_slots()
 
@@ -187,9 +203,9 @@ local function apply_grid_slots(enabled)
 		size_multipliers.story = enabled and size_multipliers.common or vanilla_story_size
 	end
 
-	local step_x = (GRID_X1 - GRID_X0) / (GRID_COLS - 1)
-	local grid_total = GRID_COLS * GRID_ROWS
-	local total = grid_total + EXPAND_SLOT_RESERVE
+	local step_x = LAYOUT.step_x
+	local grid_total = LAYOUT.cols * LAYOUT.rows
+	local total = grid_total + C.EXPAND_SLOT_RESERVE
 
 	for name, theme in pairs(MissionBoardThemes) do
 		local slots = theme.slots and theme.slots.small
@@ -213,18 +229,18 @@ local function apply_grid_slots(enabled)
 				slot.group = "small"
 				slot.index = i
 				if enabled then
-					local col = (i - 1) % GRID_COLS
-					local row = math.floor((i - 1) / GRID_COLS) + 1
+					local col = (i - 1) % LAYOUT.cols
+					local row = math.floor((i - 1) / LAYOUT.cols) + 1
 					slot.zoom = 1
-					slot.rotation = 0
 					slot.category_priority = nil
 					if i > grid_total then
-						slot.position[1] = GRID_CENTRE_X
-						slot.position[2] = GRID_CENTRE_Y
+						slot.position[1] = C.GRID_CENTRE_X
+						slot.position[2] = C.GRID_CENTRE_Y
 					else
-						slot.position[1] = GRID_X0 + col * step_x
-						slot.position[2] = GRID_ROW_Y[math.min(row, GRID_ROWS)]
+						slot.position[1] = GRID_X0 + LAYOUT.shift + col * step_x
+						slot.position[2] = LAYOUT.row_y[math.min(row, LAYOUT.rows)]
 					end
+					slot.rotation = slot_rotation(col, row)
 				else
 					local source = saved[i]
 					slot.zoom = source.zoom
@@ -239,12 +255,12 @@ local function apply_grid_slots(enabled)
 end
 
 local function filters()
-	if not filter_state then
+	if not filter_ui.state then
 		local stored = mod:get("_filters")
-		filter_state = type(stored) == "table" and stored or {}
+		filter_ui.state = type(stored) == "table" and stored or {}
 	end
 
-	return filter_state
+	return filter_ui.state
 end
 
 local function filter_default(group, key)
@@ -282,8 +298,8 @@ local function set_filter(group, key, value)
 end
 
 local function conditions_for_circumstance(circumstance)
-	if not filter_conditions_by_circumstance then
-		filter_conditions_by_circumstance = {}
+	if not filter_ui.conditions_by_circumstance then
+		filter_ui.conditions_by_circumstance = {}
 
 		local key_by_mutator = {}
 		for i = 1, #FILTER_CONDITIONS do
@@ -304,12 +320,139 @@ local function conditions_for_circumstance(circumstance)
 						found[key] = true
 					end
 				end
-				filter_conditions_by_circumstance[name] = found
+				filter_ui.conditions_by_circumstance[name] = found
 			end
 		end
 	end
 
-	return circumstance and filter_conditions_by_circumstance[circumstance]
+	return circumstance and filter_ui.conditions_by_circumstance[circumstance]
+end
+
+local function panel_intrusion(view)
+	local scenegraph = view and view._ui_scenegraph
+
+	if not scenegraph then
+		return 0
+	end
+
+	local corner = scenegraph[FILTER.anchor]
+	local area = scenegraph.mission_area
+
+	if not corner or not area or not corner.world_position or not area.world_position then
+		return 0
+	end
+
+	return math.max(0, corner.world_position[1] + FILTER.width - area.world_position[1])
+end
+
+local function compute_grid_layout(view)
+	local scenegraph = view and view._ui_scenegraph
+	local area = scenegraph and scenegraph.mission_area
+	local sidebar = scenegraph and scenegraph.sidebar
+	local canvas = scenegraph and scenegraph.canvas
+	local corner = scenegraph and scenegraph[FILTER.anchor]
+
+	if not LAYOUT.pin_shifts_grid or not area or not sidebar or not canvas or not corner then
+		LAYOUT.cols = GRID_COLS
+		LAYOUT.rows = GRID_ROWS
+		LAYOUT.row_y = C.GRID_ROW_Y
+		LAYOUT.shift = 0
+		LAYOUT.scale = TILE_SCALE
+		LAYOUT.step_x = (C.GRID_X1 - GRID_X0) / (GRID_COLS - 1)
+
+		return true
+	end
+
+	local render_scale = RESOLUTION_LOOKUP.scale
+	local nx, ny = area.world_position[1], area.world_position[2]
+
+	local left = canvas.world_position[1] + LAYOUT.margin_left
+	local right = sidebar.world_position[1] - LAYOUT.margin_right
+	local top = ny + LAYOUT.edge_margin
+	local bottom = ny + (area.size and area.size[2] or 920)
+	local found = false
+
+	for _, widget in ipairs(view._mission_widgets or {}) do
+		local name = tostring(widget.name or "")
+		local is_mission = widget.content and widget.content.mission ~= nil
+
+		if widget.offset and not is_mission and string.sub(name, 1, 4) ~= "mmt_" then
+			local art_top = math.huge
+
+			for _, pass in pairs(widget.style) do
+				if type(pass) == "table" and pass.size and pass.offset
+					and type(pass.size[1]) == "number" and type(pass.size[2]) == "number" then
+					local oy = pass.offset[2] or 0
+
+					if pass.vertical_alignment == "center" then
+						oy = oy + (TILE_BOX_H - pass.size[2]) * 0.5
+					end
+
+					if oy < art_top then
+						art_top = oy
+					end
+				end
+			end
+
+			if art_top == math.huge then
+				art_top = 0
+			end
+
+			local mult = widget.scale and render_scale * widget.scale or 1
+			local edge = mult * (ny + widget.offset[2] + art_top) - LAYOUT.margin_bottom
+
+			found = true
+
+			if edge < bottom then
+				bottom = edge
+			end
+		end
+	end
+
+	if not found then
+		return false
+	end
+
+	bottom = math.max(bottom, ny + LAYOUT.min_bottom)
+
+	local intrusion = corner.world_position[1] + FILTER.width - (nx + GRID_X0)
+	local pinned = filter_ui.open and intrusion > 0
+
+	LAYOUT.intrusion = intrusion
+
+	if pinned then
+		left = math.max(left, corner.world_position[1] + FILTER.width + LAYOUT.pin_nudge * TILE_PLATE_W)
+	end
+
+	local cols = pinned and LAYOUT.pinned_cols or GRID_COLS
+	local rows = pinned and LAYOUT.pinned_rows or GRID_ROWS
+
+	local gw = LAYOUT.glow_w
+	local gh = C.TILE_PLATE_H
+	local al = (gw - TILE_BOX_W) * 0.5
+	local at = (gh - TILE_BOX_H) * 0.5
+
+	local by_width = (right - left + (cols - 1) * LAYOUT.step_trim)
+		/ ((cols - 1) * LAYOUT.spread * TILE_PLATE_W + gw)
+	local by_height = (bottom - top) / (((rows - 1) * LAYOUT.vspread + 1) * gh)
+	local k = math.min(LAYOUT.max_scale * render_scale, math.max(0.2, math.min(by_width, by_height)))
+
+	local step_v = LAYOUT.spread * TILE_PLATE_W * k - LAYOUT.step_trim
+	local step_y = ((bottom - top) - gh * k) / (rows - 1)
+	local row_y = {}
+
+	for i = 1, rows do
+		row_y[i] = (top + at * k + (i - 1) * step_y) / k - ny
+	end
+
+	LAYOUT.cols = cols
+	LAYOUT.rows = rows
+	LAYOUT.row_y = row_y
+	LAYOUT.scale = k / render_scale
+	LAYOUT.step_x = step_v / k
+	LAYOUT.shift = (left / k - nx + al) - GRID_X0
+
+	return true
 end
 
 local function mission_side_key(mission)
@@ -369,7 +512,7 @@ local function mission_passes_filters(mission)
 end
 
 local function mission_is_notable(mission)
-	return NOTABLE_CATEGORY[mission.category] == true and mission_is_live(mission)
+	return C.NOTABLE_CATEGORY[mission.category] == true and mission_is_live(mission)
 end
 
 local function sort_map_missions(a, b)
@@ -440,6 +583,7 @@ local function convert_expired_missions(logic, t)
 			local remaining = HORIZON_MINUTES - past
 
 			if remaining > 0 then
+				mission.mmt_expiry_game_time = t - past * 60
 				mission.expiry_game_time = t + remaining * 60
 				mission.start_game_time = mission.expiry_game_time - HORIZON_MINUTES * 60
 				mission.mmt_horizon = true
@@ -549,8 +693,8 @@ local function apply_gradients(widget, category)
 		return
 	end
 
-	for i = 1, #GRADIENT_STYLES do
-		local style = widget.style[GRADIENT_STYLES[i]]
+	for i = 1, #C.GRADIENT_STYLES do
+		local style = widget.style[C.GRADIENT_STYLES[i]]
 		if style then
 			style.default_gradient = gradient.default_gradient
 			style.selected_gradient = gradient.selected_gradient
@@ -640,7 +784,7 @@ local function apply_banner(view, widget, mission)
 
 	local ui_renderer = view and view._ui_renderer
 	if ui_renderer then
-		local width = Text.text_size(ui_renderer, label, banner_text, BADGE_TEXT_BOUNDS)
+		local width = Text.text_size(ui_renderer, label, banner_text, C.BADGE_TEXT_BOUNDS)
 		if banner_text.size then
 			banner_text.size[1] = width + 26
 		end
@@ -657,7 +801,7 @@ local function apply_banner(view, widget, mission)
 
 	local banner_width = banner.size and banner.size[1] or size[1]
 	local target_x = (size[1] - banner_width) * 0.5
-	local target_y = size[2] + BANNER_GAP
+	local target_y = size[2] + C.BANNER_GAP
 	local shift_x = target_x - base.bx
 	local shift_y = target_y - base.by
 
@@ -746,15 +890,6 @@ local function restore_faded_widgets()
 	table.clear(faded_widgets)
 end
 
-local function sort_by_freshness(a, b)
-	local expiry_a = tonumber(a.expiry) or 0
-	local expiry_b = tonumber(b.expiry) or 0
-	if expiry_a ~= expiry_b then
-		return expiry_a > expiry_b
-	end
-	return a.id < b.id
-end
-
 local function style_expired_timer(widget)
 	local timer_bar = widget.style.timer_bar
 	if not timer_bar then
@@ -769,7 +904,7 @@ local function style_expired_timer(widget)
 end
 
 local function style_card(view, widget, mission)
-	widget.scale = TILE_SCALE
+	widget.scale = LAYOUT.scale
 
 	if not mission_is_live(mission) then
 		style_expired_timer(widget)
@@ -1121,8 +1256,18 @@ local function ensure_tooltip(view)
 	return tooltip_widget
 end
 
+local function cursor_over_panel()
+	if not filter_ui.open or filter_ui.slide < 0.98 or not filter_ui.panel_widget then
+		return false
+	end
+
+	local hotspot = filter_ui.panel_widget.content.panel_hotspot
+
+	return hotspot ~= nil and hotspot.is_hover == true
+end
+
 local function hovered_card(view)
-	if expanded_map or InputDevice.gamepad_active then
+	if expanded_map or InputDevice.gamepad_active or cursor_over_panel() then
 		return nil
 	end
 
@@ -1138,12 +1283,12 @@ local function hovered_card(view)
 end
 
 local function tooltip_from_table()
-	if not expanded_map or table_row_count == 0 then
+	if not expanded_map or table_ui.row_count == 0 then
 		return nil
 	end
 
-	for i = 1, table_row_count do
-		local widget = table_widgets[i + 1]
+	for i = 1, table_ui.row_count do
+		local widget = table_ui.widgets[i + 1]
 		local labels = widget and widget.mmt_labels
 
 		if labels then
@@ -1152,7 +1297,7 @@ local function tooltip_from_table()
 				local hotspot = widget.content["cell_" .. key]
 
 				if hotspot and hotspot.is_hover and labels[key] then
-					return labels[key], table_cell_cx[key] + table_dx, widget.mmt_row_y + table_dy, widget
+					return labels[key], table_ui.cell_cx[key] + table_ui.dx, widget.mmt_row_y + table_ui.dy, widget
 				end
 			end
 
@@ -1163,7 +1308,7 @@ local function tooltip_from_table()
 					local hotspot = widget.content["slot_hotspot_" .. j]
 
 					if hotspot and hotspot.is_hover and slot_labels[j] then
-						return slot_labels[j], table_slot_cx[j] + table_dx, widget.mmt_row_y + table_dy, widget
+						return slot_labels[j], table_ui.slot_cx[j] + table_ui.dx, widget.mmt_row_y + table_ui.dy, widget
 					end
 				end
 			end
@@ -1219,7 +1364,7 @@ local function update_tooltip(view)
 		size[2] = TILE_BOX_H
 		widget.offset[1] = card.offset[1]
 		widget.offset[2] = card.offset[2]
-		above = (TILE_BOX_H - TILE_PLATE_H) * 0.5 - TOOLTIP.gap - TOOLTIP.height + TOOLTIP.card_dy
+		above = (TILE_BOX_H - C.TILE_PLATE_H) * 0.5 - TOOLTIP.gap - TOOLTIP.height + TOOLTIP.card_dy
 	else
 		widget.scale = nil
 		size[1] = 0
@@ -1237,8 +1382,8 @@ local function update_tooltip(view)
 end
 
 local function filter_color(key)
-	if not filter_colors then
-		filter_colors = {
+	if not filter_ui.colors then
+		filter_ui.colors = {
 			frame = Color.terminal_frame(255, true),
 			frame_hover = Color.terminal_frame_hover(255, true),
 			text_body = Color.terminal_text_body(255, true),
@@ -1246,7 +1391,7 @@ local function filter_color(key)
 		}
 	end
 
-	return filter_colors[key]
+	return filter_ui.colors[key]
 end
 
 local function side_display_name(key)
@@ -1265,7 +1410,7 @@ local function side_display_name(key)
 end
 
 local function rebuild_filter_rows(logic)
-	table.clear(filter_rows)
+	table.clear(filter_ui.rows)
 
 	local mission_data = logic and logic._mission_data
 	local page = logic and logic:get_current_page()
@@ -1314,14 +1459,14 @@ local function rebuild_filter_rows(logic)
 			return
 		end
 
-		filter_rows[#filter_rows + 1] = {
+		filter_ui.rows[#filter_ui.rows + 1] = {
 			kind = "group",
 			label = mod:localize(title_key),
 		}
 		parts[#parts + 1] = title_key
 
 		for i = 1, #entries do
-			filter_rows[#filter_rows + 1] = entries[i]
+			filter_ui.rows[#filter_ui.rows + 1] = entries[i]
 			parts[#parts + 1] = entries[i].group .. "." .. entries[i].key
 		end
 	end
@@ -1402,8 +1547,8 @@ end
 local function filter_panel_height()
 	local height = FILTER.header_height + FILTER.pad
 
-	for i = 1, #filter_rows do
-		height = height + (filter_rows[i].kind == "group" and FILTER.group_height or FILTER.row_height)
+	for i = 1, #filter_ui.rows do
+		height = height + (filter_ui.rows[i].kind == "group" and FILTER.group_height or FILTER.row_height)
 	end
 
 	return height
@@ -1413,7 +1558,7 @@ local function filter_row_y(index)
 	local y = FILTER.top + FILTER.header_height
 
 	for i = 1, index - 1 do
-		y = y + (filter_rows[i].kind == "group" and FILTER.group_height or FILTER.row_height)
+		y = y + (filter_ui.rows[i].kind == "group" and FILTER.group_height or FILTER.row_height)
 	end
 
 	return y
@@ -1453,6 +1598,40 @@ local function filter_panel_definition(height)
 					1,
 				},
 				color = Color.black(178.5, true),
+			},
+		},
+		{
+			content_id = "header_hotspot",
+			pass_type = "hotspot",
+			style = {
+				horizontal_alignment = "left",
+				vertical_alignment = "top",
+				size = {
+					FILTER.width,
+					FILTER.header_height,
+				},
+				offset = {
+					0,
+					FILTER.top,
+					6,
+				},
+			},
+		},
+		{
+			content_id = "panel_hotspot",
+			pass_type = "hotspot",
+			style = {
+				horizontal_alignment = "left",
+				vertical_alignment = "top",
+				size = {
+					FILTER.width,
+					height,
+				},
+				offset = {
+					0,
+					FILTER.top,
+					0,
+				},
 			},
 		},
 		{
@@ -1695,22 +1874,6 @@ local function filter_row_definition(index)
 end
 
 local function filter_tab_definition()
-	local label_style = table.clone(UIFontSettings.body_small)
-	label_style.horizontal_alignment = "left"
-	label_style.vertical_alignment = "top"
-	label_style.text_horizontal_alignment = "center"
-	label_style.text_vertical_alignment = "center"
-	label_style.size = {
-		FILTER.tab_width,
-		FILTER.tab_height,
-	}
-	label_style.offset = {
-		0,
-		FILTER.top,
-		4,
-	}
-	label_style.text_color = Color.terminal_text_header(255, true)
-
 	return UIWidget.create_definition({
 		{
 			content_id = "hotspot",
@@ -1767,11 +1930,23 @@ local function filter_tab_definition()
 			},
 		},
 		{
-			pass_type = "text",
-			style_id = "label",
-			value_id = "label",
-			value = "",
-			style = label_style,
+			pass_type = "texture",
+			style_id = "icon",
+			value = "content/ui/materials/icons/weapons/actions/activate",
+			style = {
+				horizontal_alignment = "left",
+				vertical_alignment = "top",
+				size = {
+					FILTER.tab_icon,
+					FILTER.tab_icon,
+				},
+				offset = {
+					(FILTER.tab_width - FILTER.tab_icon) * 0.5,
+					FILTER.top + (FILTER.tab_height - FILTER.tab_icon) * 0.5,
+					4,
+				},
+				color = Color.terminal_text_header(255, true),
+			},
 		},
 	}, FILTER.anchor)
 end
@@ -1785,24 +1960,24 @@ local function destroy_filter_widgets(view)
 			if widget.mmt_filter then
 				table.remove(widgets, i)
 				view:_unregister_widget_name(widget.name)
+				UIWidget.destroy(view._ui_renderer, widget)
 			end
 		end
 	end
 
-	filter_panel_widget = nil
-	filter_tab_widget = nil
-	table.clear(filter_row_widgets)
+	filter_ui.panel_widget = nil
+	filter_ui.tab_widget = nil
+	table.clear(filter_ui.row_widgets)
 end
 
 local function reset_filter_panel()
-	filter_panel_widget = nil
-	filter_tab_widget = nil
-	filter_signature = nil
-	filter_scan_key = nil
-	filter_scan_page = nil
-	filter_open = false
-	filter_slide = 0
-	table.clear(filter_row_widgets)
+	filter_ui.panel_widget = nil
+	filter_ui.tab_widget = nil
+	filter_ui.signature = nil
+	filter_ui.scan_page = nil
+	filter_ui.open = false
+	filter_ui.slide = 0
+	table.clear(filter_ui.row_widgets)
 end
 
 local function category_icon(mission)
@@ -1844,7 +2019,7 @@ local function circumstance_label(mission)
 end
 
 local function side_icon(mission)
-	return SIDE_ICONS[mission_side_key(mission)]
+	return C.SIDE_ICONS[mission_side_key(mission)]
 end
 
 local function mission_time_state(mission)
@@ -1903,7 +2078,7 @@ local function mission_table_height(row_count)
 end
 
 local function mission_table_origin(row_count)
-	return GRID_CENTRE_X - MTABLE.width * 0.5, GRID_CENTRE_Y - mission_table_height(row_count) * 0.5
+	return C.GRID_CENTRE_X - MTABLE.width * 0.5, C.GRID_CENTRE_Y - mission_table_height(row_count) * 0.5
 end
 
 local function table_text_style(size_x, offset_x, offset_y, font, align)
@@ -2484,14 +2659,15 @@ local function destroy_mission_table(view)
 			if widget.mmt_table then
 				table.remove(widgets, i)
 				view:_unregister_widget_name(widget.name)
+				UIWidget.destroy(view._ui_renderer, widget)
 			end
 		end
 	end
 
-	table.clear(table_widgets)
-	table.clear(table_rows)
-	table_row_count = 0
-	table_source_count = 0
+	table.clear(table_ui.widgets)
+	table.clear(table_ui.rows)
+	table_ui.row_count = 0
+	table_ui.source_count = 0
 	next_expiry_scan = 0
 
 	if scrim_widget then
@@ -2524,26 +2700,26 @@ local function build_mission_table(view, map)
 	end
 
 	for i = 1, #list do
-		table_rows[i] = list[i]
+		table_ui.rows[i] = list[i]
 	end
 
-	table.sort(table_rows, sort_by_time_left)
+	table.sort(table_ui.rows, sort_by_time_left)
 
-	while #table_rows > MTABLE.max_rows do
-		table.remove(table_rows)
+	while #table_ui.rows > MTABLE.max_rows do
+		table.remove(table_ui.rows)
 	end
 
-	table_source_count = #list
-	table_row_count = #table_rows
-	if table_row_count == 0 then
+	table_ui.source_count = #list
+	table_ui.row_count = #table_ui.rows
+	if table_ui.row_count == 0 then
 		return
 	end
 
 	local widgets = view._widgets
-	local panel = view:_create_widget("mmt_table_panel", mission_table_definition(table_row_count))
+	local panel = view:_create_widget("mmt_table_panel", mission_table_definition(table_ui.row_count))
 	panel.mmt_table = true
-	panel.offset[1] = table_dx
-	panel.offset[2] = table_dy
+	panel.offset[1] = table_ui.dx
+	panel.offset[2] = table_ui.dy
 	panel.offset[3] = MTABLE.z
 	panel.content.title = map_display_name(map)
 	panel.content.header_time = mod:localize("col_time")
@@ -2551,31 +2727,31 @@ local function build_mission_table(view, map)
 	panel.content.header_cond = mod:localize("col_cond")
 	panel.content.header_side = mod:localize("col_side")
 	panel.content.header_conds = mod:localize("col_conds")
-	table_widgets[#table_widgets + 1] = panel
+	table_ui.widgets[#table_ui.widgets + 1] = panel
 	widgets[#widgets + 1] = panel
 
-	local origin_x, origin_y = mission_table_origin(table_row_count)
+	local origin_x, origin_y = mission_table_origin(table_ui.row_count)
 	for i = 1, #TABLE_CELLS do
 		local key = TABLE_CELLS[i]
-		table_cell_cx[key] = origin_x + MTABLE.pad + MTABLE["col_" .. key] + MTABLE.col_w[key] * 0.5
+		table_ui.cell_cx[key] = origin_x + MTABLE.pad + MTABLE["col_" .. key] + MTABLE.col_w[key] * 0.5
 	end
 
 	for i = 1, MTABLE.cond_slots do
-		table_slot_cx[i] = origin_x + MTABLE.pad + MTABLE.col_conds + (i - 1) * MTABLE.cond_slot + MTABLE.cond_slot * 0.5
+		table_ui.slot_cx[i] = origin_x + MTABLE.pad + MTABLE.col_conds + (i - 1) * MTABLE.cond_slot + MTABLE.cond_slot * 0.5
 	end
 
 	if scrim_widget then
-		local hole_x, hole_y = mission_table_origin(table_row_count)
-		layout_scrim_bands(scrim_widget, hole_x + table_dx, hole_y + table_dy, MTABLE.width, mission_table_height(table_row_count))
+		local hole_x, hole_y = mission_table_origin(table_ui.row_count)
+		layout_scrim_bands(scrim_widget, hole_x + table_ui.dx, hole_y + table_ui.dy, MTABLE.width, mission_table_height(table_ui.row_count))
 	end
 
-	for i = 1, table_row_count do
-		local mission = table_rows[i]
-		local widget = view:_create_widget("mmt_table_row_" .. i, mission_table_row_definition(i, table_row_count))
+	for i = 1, table_ui.row_count do
+		local mission = table_ui.rows[i]
+		local widget = view:_create_widget("mmt_table_row_" .. i, mission_table_row_definition(i, table_ui.row_count))
 		widget.mmt_table = true
 		widget.mmt_mission = mission
-		widget.offset[1] = table_dx
-		widget.offset[2] = table_dy
+		widget.offset[1] = table_ui.dx
+		widget.offset[2] = table_ui.dy
 		widget.offset[3] = MTABLE.z
 
 		local keys = conditions_for_circumstance(mission.circumstance)
@@ -2589,12 +2765,12 @@ local function build_mission_table(view, map)
 				if keys[key] and slot < MTABLE.cond_slots then
 					slot = slot + 1
 					widget.mmt_slot_labels[slot] = mod:localize(FILTER_CONDITIONS[c].mod_loc)
-					local icon = CONDITION_ICONS[key]
+					local icon = C.CONDITION_ICONS[key]
 					if icon then
 						widget.content["cond_slot_" .. slot] = icon
 						widget.style["cond_slot_" .. slot].visible = true
 					else
-						widget.content["cond_tag_" .. slot] = CONDITION_TAGS[key] or "?"
+						widget.content["cond_tag_" .. slot] = C.CONDITION_TAGS[key] or "?"
 						widget.style["cond_tag_" .. slot].visible = true
 					end
 				end
@@ -2602,7 +2778,7 @@ local function build_mission_table(view, map)
 		end
 		set_icon_cell(widget, "type_icon", "type_icon", category_icon(mission))
 		set_icon_cell(widget, "side_icon", "side_icon", side_icon(mission))
-		set_icon_cell(widget, "saved_icon", "saved_icon", saved_ids[mission.id] and BOOKMARK_ICON or nil)
+		set_icon_cell(widget, "saved_icon", "saved_icon", saved_ids[mission.id] and C.BOOKMARK_ICON or nil)
 
 		local cond_material = circumstance_icon(mission)
 		set_icon_cell(widget, "cond_icon", "cond_icon", cond_material)
@@ -2625,38 +2801,38 @@ local function build_mission_table(view, map)
 			view:set_selected_mission(mission.id)
 		end
 
-		table_widgets[#table_widgets + 1] = widget
+		table_ui.widgets[#table_ui.widgets + 1] = widget
 		widgets[#widgets + 1] = widget
 	end
 end
 
 mod.mmt_tune_table = function (dx, dy)
-	table_dx = dx or table_dx
-	table_dy = dy or table_dy
+	table_ui.dx = dx or table_ui.dx
+	table_ui.dy = dy or table_ui.dy
 
-	for i = 1, #table_widgets do
-		local widget = table_widgets[i]
-		widget.offset[1] = table_dx
-		widget.offset[2] = table_dy
+	for i = 1, #table_ui.widgets do
+		local widget = table_ui.widgets[i]
+		widget.offset[1] = table_ui.dx
+		widget.offset[2] = table_ui.dy
 		widget.dirty = true
 	end
 
-	if scrim_widget and table_row_count > 0 then
-		local hole_x, hole_y = mission_table_origin(table_row_count)
-		layout_scrim_bands(scrim_widget, hole_x + table_dx, hole_y + table_dy, MTABLE.width, mission_table_height(table_row_count))
+	if scrim_widget and table_ui.row_count > 0 then
+		local hole_x, hole_y = mission_table_origin(table_ui.row_count)
+		layout_scrim_bands(scrim_widget, hole_x + table_ui.dx, hole_y + table_ui.dy, MTABLE.width, mission_table_height(table_ui.row_count))
 	end
 
-	return table_dx, table_dy
+	return table_ui.dx, table_ui.dy
 end
 
 local function update_mission_table(view)
-	if table_row_count == 0 then
+	if table_ui.row_count == 0 then
 		return
 	end
 
 	if expanded_map then
 		local list = map_missions[expanded_map]
-		if list and #list ~= table_source_count then
+		if list and #list ~= table_ui.source_count then
 			build_mission_table(view, expanded_map)
 			return
 		end
@@ -2664,8 +2840,8 @@ local function update_mission_table(view)
 
 	local selected = view._selected_mission_id
 
-	for i = 1, table_row_count do
-		local widget = table_widgets[i + 1]
+	for i = 1, table_ui.row_count do
+		local widget = table_ui.widgets[i + 1]
 		local mission = widget and widget.mmt_mission
 
 		if mission then
@@ -2675,7 +2851,7 @@ local function update_mission_table(view)
 				widget.mmt_minutes = minutes
 				widget.content.time = format_minutes(minutes)
 
-				widget.style.bar_fill.color = table.clone(live and LIVE_BAR_COLOR or EXPIRED_BAR_COLOR)
+				widget.style.bar_fill.color = table.clone(live and C.LIVE_BAR_COLOR or EXPIRED_BAR_COLOR)
 				widget.style.time.text_color = live and Color.terminal_text_body(255, true) or table.clone(EXPIRED_BAR_COLOR)
 				widget.style.bar_fill.size[1] = math.max(MTABLE.bar_width * (ratio or 0), 2)
 				widget.dirty = true
@@ -2855,14 +3031,17 @@ local function create_filter_widgets(view)
 	local widgets = view._widgets
 	local title = mod:localize("filter_title")
 
-	filter_panel_widget = view:_create_widget("mmt_filter_panel", filter_panel_definition(filter_panel_height()))
-	filter_panel_widget.mmt_filter = true
-	filter_panel_widget.offset[3] = FILTER.z
-	filter_panel_widget.content.title = title
-	widgets[#widgets + 1] = filter_panel_widget
+	filter_ui.panel_widget = view:_create_widget("mmt_filter_panel", filter_panel_definition(filter_panel_height()))
+	filter_ui.panel_widget.mmt_filter = true
+	filter_ui.panel_widget.offset[3] = FILTER.z
+	filter_ui.panel_widget.content.title = title
+	filter_ui.panel_widget.content.header_hotspot.pressed_callback = function ()
+		set_filter_open(view, false)
+	end
+	widgets[#widgets + 1] = filter_ui.panel_widget
 
-	for i = 1, #filter_rows do
-		local row = filter_rows[i]
+	for i = 1, #filter_ui.rows do
+		local row = filter_ui.rows[i]
 		local widget
 
 		if row.kind == "group" then
@@ -2879,18 +3058,43 @@ local function create_filter_widgets(view)
 		widget.mmt_row = row
 		widget.offset[3] = FILTER.z
 		widget.content.label = row.label
-		filter_row_widgets[#filter_row_widgets + 1] = widget
+		filter_ui.row_widgets[#filter_ui.row_widgets + 1] = widget
 		widgets[#widgets + 1] = widget
 	end
 
-	filter_tab_widget = view:_create_widget("mmt_filter_tab", filter_tab_definition())
-	filter_tab_widget.mmt_filter = true
-	filter_tab_widget.offset[3] = FILTER.z
-	filter_tab_widget.content.label = title
-	filter_tab_widget.content.hotspot.pressed_callback = function ()
-		filter_open = not filter_open
+	filter_ui.tab_widget = view:_create_widget("mmt_filter_tab", filter_tab_definition())
+	filter_ui.tab_widget.mmt_filter = true
+	filter_ui.tab_widget.offset[3] = FILTER.z
+	filter_ui.tab_widget.content.hotspot.pressed_callback = function ()
+		set_filter_open(view, not filter_ui.open)
 	end
-	widgets[#widgets + 1] = filter_tab_widget
+	widgets[#widgets + 1] = filter_ui.tab_widget
+end
+
+local function relayout_cards(view)
+	local widgets = view and view._mission_widgets
+
+	if not widgets then
+		return
+	end
+
+	for i = 1, #widgets do
+		local widget = widgets[i]
+		local slot = widget and widget.mmt_slot
+
+		if slot and widget.offset then
+			widget.offset[1] = slot.position[1]
+			widget.offset[2] = slot.position[2]
+			widget.scale = LAYOUT.scale
+			widget.dirty = true
+		end
+	end
+end
+
+set_filter_open = function (view, open)
+	filter_ui.open = open
+	mod:set("_filter_open", open, false)
+	LAYOUT.applied_intrusion = nil
 end
 
 local function filter_panel_visible(view)
@@ -2908,11 +3112,10 @@ end
 
 local function update_filter_panel(view, dt)
 	if not show_all_missions then
-		if filter_panel_widget then
+		if filter_ui.panel_widget then
 			destroy_filter_widgets(view)
-			filter_signature = nil
-			filter_scan_key = nil
-			filter_scan_page = nil
+			filter_ui.signature = nil
+			filter_ui.scan_page = nil
 		end
 		return
 	end
@@ -2922,13 +3125,13 @@ local function update_filter_panel(view, dt)
 	local page_index = logic and logic._page_index or 0
 	local mission_count = mission_data and #mission_data or 0
 
-	if page_index ~= filter_scan_page or mission_count ~= filter_scan_key then
-		filter_scan_page = page_index
-		filter_scan_key = mission_count
+	if filter_ui.scan_dirty or page_index ~= filter_ui.scan_page then
+		filter_ui.scan_dirty = false
+		filter_ui.scan_page = page_index
 
 		local signature = rebuild_filter_rows(logic)
-		if signature ~= filter_signature then
-			filter_signature = signature
+		if signature ~= filter_ui.signature then
+			filter_ui.signature = signature
 			destroy_filter_widgets(view)
 			if signature ~= "" then
 				create_filter_widgets(view)
@@ -2936,41 +3139,46 @@ local function update_filter_panel(view, dt)
 		end
 	end
 
-	if not filter_panel_widget then
+	if not filter_ui.panel_widget then
 		return
 	end
 
-	local target = filter_open and 1 or 0
-	if filter_slide ~= target then
-		filter_slide = filter_slide + (target - filter_slide) * math.min(dt * FILTER.slide_rate, 1)
-		if math.abs(target - filter_slide) < 0.002 then
-			filter_slide = target
+	local target = filter_ui.open and 1 or 0
+	if filter_ui.slide ~= target then
+		filter_ui.slide = filter_ui.slide + (target - filter_ui.slide) * math.min(dt * FILTER.slide_rate, 1)
+		if math.abs(target - filter_ui.slide) < 0.002 then
+			filter_ui.slide = target
 		end
 	end
 
-	local x = (filter_slide - 1) * FILTER.width
+	local x = (filter_ui.slide - 1) * FILTER.width
 	local visible = filter_panel_visible(view)
 
-	filter_panel_widget.offset[1] = x
-	filter_panel_widget.visible = visible
-	filter_panel_widget.dirty = true
+	filter_ui.panel_widget.offset[1] = x
+	filter_ui.panel_widget.visible = visible
 
-	filter_tab_widget.offset[1] = x + FILTER.width
-	filter_tab_widget.visible = visible
-	filter_tab_widget.dirty = true
+	local header = filter_ui.panel_widget.content.header_hotspot
+	filter_ui.panel_widget.style.title.text_color = filter_color(header and header.is_hover and "frame_hover" or "text_header")
+	filter_ui.panel_widget.dirty = true
 
-	if filter_tab_widget.content.hotspot.is_hover then
-		filter_tab_widget.style.frame.color = filter_color("frame_hover")
+	filter_ui.tab_widget.offset[1] = x + FILTER.width
+	filter_ui.tab_widget.visible = visible and filter_ui.slide < 0.98
+	filter_ui.tab_widget.dirty = true
+
+	if filter_ui.tab_widget.content.hotspot.is_hover then
+		filter_ui.tab_widget.style.frame.color = filter_color("frame_hover")
+		filter_ui.tab_widget.style.icon.color = filter_color("frame_hover")
 	else
-		filter_tab_widget.style.frame.color = filter_color("frame")
+		filter_ui.tab_widget.style.frame.color = filter_color("frame")
+		filter_ui.tab_widget.style.icon.color = filter_color("text_header")
 	end
 
-	for i = 1, #filter_row_widgets do
-		local widget = filter_row_widgets[i]
+	for i = 1, #filter_ui.row_widgets do
+		local widget = filter_ui.row_widgets[i]
 		local row = widget.mmt_row
 
 		widget.offset[1] = x
-		widget.visible = visible and filter_slide > 0.02
+		widget.visible = visible and filter_ui.slide > 0.02
 		widget.dirty = true
 
 		if row.kind == "row" then
@@ -3015,8 +3223,8 @@ end
 mod:hook_require("scripts/settings/input/default_view_input_settings", function (DefaultViewInputSettings)
 	DefaultViewInputSettings.aliases.mmterm_filter_board = {
 		"keyboard_f",
-		"xbox_controller_right_shoulder",
-		"ps4_controller_r1",
+		"xbox_controller_left_trigger",
+		"ps4_controller_l2",
 		description = "",
 		bindable = false,
 	}
@@ -3041,7 +3249,7 @@ local function warn_incompatible_mods()
 	end
 	incompatible_warned = true
 
-	for _, name in ipairs(INCOMPATIBLE_MODS) do
+	for _, name in ipairs(C.INCOMPATIBLE_MODS) do
 		local other = get_mod(name)
 		if other and other:is_enabled() then
 			mod:notify(string.gsub(mod:localize("msg_incompatible_mod"), "#", name))
@@ -3134,6 +3342,7 @@ mod:hook_safe(CLASS.MissionBoardViewLogic, "refresh_filtered_missions", function
 	end
 	refresh_now()
 	rebuild_map_missions(self)
+	filter_ui.scan_dirty = true
 	layout_dirty = true
 end)
 
@@ -3185,6 +3394,17 @@ mod:hook_safe(CLASS.MissionBoardView, "update", function (self, dt)
 	refresh_now()
 
 	if show_all_missions then
+		local intrusion = panel_intrusion(self)
+
+		if intrusion ~= LAYOUT.applied_intrusion or filter_ui.open ~= LAYOUT.applied_open then
+			if compute_grid_layout(self) then
+				LAYOUT.applied_intrusion = intrusion
+				LAYOUT.applied_open = filter_ui.open
+				apply_grid_slots(show_all_missions)
+				relayout_cards(self)
+			end
+		end
+
 		update_filter_panel(self, dt)
 	end
 end)
@@ -3196,6 +3416,10 @@ end)
 mod:hook(CLASS.MissionBoardView, "_set_selected", function (func, self, id, ...)
 	if not show_all_missions then
 		return func(self, id, ...)
+	end
+
+	if cursor_over_panel() then
+		return
 	end
 
 	if id and expanded_ids[id] then
@@ -3250,6 +3474,7 @@ mod:hook(CLASS.MissionBoardView, "_create_mission_widget_from_mission", function
 
 		local override = slot_for_mission[mission.id]
 		if override and widget.offset then
+			widget.mmt_slot = override
 			widget.offset[1] = override.position[1]
 			widget.offset[2] = override.position[2]
 		end
@@ -3315,14 +3540,19 @@ mod:hook_safe("MissionBoardView", "init", function (self, settings)
 	tooltip_widget = nil
 	tooltip_card = nil
 	table.clear(badge_widgets)
-	table.clear(table_widgets)
-	table.clear(table_rows)
-	table_row_count = 0
+	table.clear(table_ui.widgets)
+	table.clear(table_ui.rows)
+	table_ui.row_count = 0
 	table.clear(expanded_ids)
 	table.clear(faded_widgets)
 	reset_filter_panel()
 
+	filter_ui.open = mod:get("_filter_open") == true
+	filter_ui.slide = filter_ui.open and 1 or 0
+	LAYOUT.applied_intrusion = nil
+	LAYOUT.applied_open = nil
+
 	self.__mod_mmterm_filter_callback = function ()
-		filter_open = not filter_open
+		set_filter_open(self, not filter_ui.open)
 	end
 end)

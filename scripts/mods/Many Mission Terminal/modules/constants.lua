@@ -51,14 +51,14 @@ local TILE_BOX_H = 82.8
 local TILE_PLATE_W = 170
 local TILE_PLATE_H = 204
 
-
-
 local GRID_AREA_X0 = GRID_X0
 local GRID_AREA_X1 = GRID_X1 + TILE_BOX_W * TILE_SCALE
 local GRID_AREA_Y0 = GRID_ROW_Y[1]
 local GRID_AREA_Y1 = GRID_ROW_Y[GRID_ROWS] + TILE_BOX_H * TILE_SCALE
 local GRID_CENTRE_X = (GRID_X0 + GRID_X1) * 0.5 + TILE_BOX_W * 0.5
 local GRID_CENTRE_Y = (GRID_ROW_Y[1] + GRID_ROW_Y[GRID_ROWS]) * 0.5 + TILE_BOX_H * 0.5
+
+local GRID_SAFE_X1 = 1100
 
 local EXPAND_SCALE = 1
 local EXPAND_COLS = 4
@@ -68,7 +68,6 @@ local EXPAND_SLOT_RESERVE = 12
 local FADE_ALPHA = 0.15
 
 local EXPAND_Z = 100
-
 
 local BADGE = {
 	size = 34,
@@ -115,10 +114,11 @@ local FILTER = {
 	group_height = 34,
 	row_height = 30,
 	box_size = 18,
-	tab_width = 128,
+	tab_width = 42,
+	tab_icon = 24,
 	tab_height = 42,
 	slide_rate = 9,
-	z = 200,
+	z = 300,
 	side_none = "none",
 }
 
@@ -144,17 +144,10 @@ local FILTER_CATEGORIES = {
 
 local FILTER_CONDITIONS = {
 	{
-		key = "specials",
-		mod_loc = "cond_specials",
+		key = "daemonhosts",
+		mod_loc = "cond_daemonhosts",
 		mutators = {
-			"mutator_waves_of_specials",
-		},
-	},
-	{
-		key = "resistance",
-		mod_loc = "cond_resistance",
-		mutators = {
-			"mutator_add_resistance",
+			"mutator_more_witches",
 		},
 	},
 	{
@@ -162,34 +155,6 @@ local FILTER_CONDITIONS = {
 		mod_loc = "cond_hounds",
 		mutators = {
 			"mutator_chaos_hounds",
-		},
-	},
-	{
-		key = "darkness",
-		mod_loc = "cond_darkness",
-		mutators = {
-			"mutator_darkness_los",
-		},
-	},
-	{
-		key = "purge",
-		mod_loc = "cond_purge",
-		mutators = {
-			"mutator_ventilation_purge_los",
-		},
-	},
-	{
-		key = "gas",
-		mod_loc = "cond_gas",
-		mutators = {
-			"mutator_toxic_gas_volumes",
-		},
-	},
-	{
-		key = "snipers",
-		mod_loc = "cond_snipers",
-		mutators = {
-			"mutator_snipers",
 		},
 	},
 	{
@@ -208,11 +173,52 @@ local FILTER_CONDITIONS = {
 		},
 	},
 	{
-		key = "witches",
-		mod_loc = "cond_witches",
+		key = "poxbursters",
+		mod_loc = "cond_poxbursters",
 		mutators = {
-			"mutator_more_witches",
 			"mutator_poxwalker_bombers",
+		},
+	},
+	{
+		key = "snipers",
+		mod_loc = "cond_snipers",
+		mutators = {
+			"mutator_snipers",
+		},
+	},
+	{
+		key = "specials",
+		mod_loc = "cond_specials",
+		mutators = {
+			"mutator_waves_of_specials",
+		},
+	},
+	{
+		key = "darkness",
+		mod_loc = "cond_darkness",
+		mutators = {
+			"mutator_darkness_los",
+		},
+	},
+	{
+		key = "gas",
+		mod_loc = "cond_gas",
+		mutators = {
+			"mutator_toxic_gas_volumes",
+		},
+	},
+	{
+		key = "purge",
+		mod_loc = "cond_purge",
+		mutators = {
+			"mutator_ventilation_purge_los",
+		},
+	},
+	{
+		key = "resistance",
+		mod_loc = "cond_resistance",
+		mutators = {
+			"mutator_add_resistance",
 		},
 	},
 }
@@ -257,14 +263,16 @@ local CONDITION_ICONS = {
 	monsters = "content/ui/materials/icons/circumstances/havoc/havoc_mutator_final_toll",
 	mutants = "content/ui/materials/icons/difficulty/difficulty_skull_auric",
 	snipers = "content/ui/materials/icons/mission_types/mission_type_02",
-	witches = "content/ui/materials/icons/circumstances/havoc/havoc_mutator_heinous_rituals",
+	daemonhosts = "content/ui/materials/icons/circumstances/havoc/havoc_mutator_heinous_rituals",
+	poxbursters = "content/ui/materials/icons/circumstances/havoc/havoc_mutator_nurgle",
 }
 
 local CONDITION_TAGS = {
 	monsters = "MON",
 	mutants = "MUT",
 	snipers = "SNP",
-	witches = "WCH",
+	daemonhosts = "DMN",
+	poxbursters = "POX",
 }
 
 local BOOKMARK_ICON = "content/ui/materials/icons/generic/bookmark"
@@ -275,7 +283,9 @@ local SIDE_ICONS = {
 }
 
 local ARCHIVE_URL = "https://darktide.dpdns.org/v1/live"
-local ARCHIVE_REFRESH_SECONDS = 120
+local ARCHIVE_REFRESH_SECONDS = 600
+local ARCHIVE_RETRY_BASE = 15
+local ARCHIVE_RETRY_MAX = 300
 local LIVE_BAR_COLOR = {
 	255,
 	101,
@@ -329,6 +339,7 @@ return {
 	GRID_AREA_X1 = GRID_AREA_X1,
 	GRID_AREA_Y0 = GRID_AREA_Y0,
 	GRID_AREA_Y1 = GRID_AREA_Y1,
+	GRID_SAFE_X1 = GRID_SAFE_X1,
 	GRID_CENTRE_X = GRID_CENTRE_X,
 	GRID_CENTRE_Y = GRID_CENTRE_Y,
 	EXPAND_SCALE = EXPAND_SCALE,
@@ -346,6 +357,8 @@ return {
 	FILTER_CONDITIONS = FILTER_CONDITIONS,
 	ARCHIVE_URL = ARCHIVE_URL,
 	ARCHIVE_REFRESH_SECONDS = ARCHIVE_REFRESH_SECONDS,
+	ARCHIVE_RETRY_BASE = ARCHIVE_RETRY_BASE,
+	ARCHIVE_RETRY_MAX = ARCHIVE_RETRY_MAX,
 	LIVE_BAR_COLOR = LIVE_BAR_COLOR,
 	EXPIRED_BAR_COLOR = EXPIRED_BAR_COLOR,
 	FADE_COLOR_KEYS = FADE_COLOR_KEYS,

@@ -48,6 +48,20 @@ jobs:
           if [ -z "$FID" ] || [ "$FID" = "null" ]; then echo "no groupId" && exit 1; fi
           echo "NEXUS_FILE_ID=$FID" >> "$GITHUB_ENV"
 
+      - name: Resolve changelog
+        if: ${{ !github.event.release.prerelease }}
+        env:
+          BODY: ${{ github.event.release.body }}
+        run: |
+          if [ -z "$(printf '%s' "$BODY" | tr -d '[:space:]')" ]; then
+            BODY="Version ${VERSION}. See https://github.com/Wobin/ManyMissionTerminal/releases/tag/${VERSION}"
+          fi
+          {
+            echo "CHANGELOG<<CHANGELOG_EOF"
+            printf '%s\n' "$BODY" | tr -d '\r'
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_ENV"
+
       - name: Upload to Nexus Mods
         if: ${{ !github.event.release.prerelease }}
         uses: Nexus-Mods/upload-action@v1.0.0-beta.8
@@ -58,4 +72,5 @@ jobs:
           version: ${{ env.VERSION }}
           display_name: Many Mission Terminal ${{ env.VERSION }}
           category: main
-          description: ${{ github.event.release.body }}
+          description: ${{ env.CHANGELOG }}
+          archive_existing_version: 'true'

@@ -2,18 +2,29 @@ local MissionTemplates = require("scripts/settings/mission/mission_templates")
 
 local map_name_cache = {}
 local now_ms = os.time() * 1000
+local now_t = 0
 
 local function refresh_now()
 	now_ms = os.time() * 1000
+	now_t = Managers.time and Managers.time:time("main") or now_t
 
 	return now_ms
 end
 
 local function minutes_past_expiry(backend_mission)
+	local expiry_game_time = backend_mission
+		and (tonumber(backend_mission.mmt_expiry_game_time) or tonumber(backend_mission.expiry_game_time))
+
+	if expiry_game_time then
+		return (now_t - expiry_game_time) / 60
+	end
+
 	local expiry = backend_mission and tonumber(backend_mission.expiry)
+
 	if not expiry then
 		return nil
 	end
+
 	return (now_ms - expiry) / 60000
 end
 
