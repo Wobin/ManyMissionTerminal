@@ -13,13 +13,13 @@ return {
 	mod_name = {
 		en = "Many Mission Terminal",
 		["zh-cn"] = "Many Mission Terminal",
-		ru = "Many Mission Terminal",
+		ru = "Терминал множества миссий",
 		["zh-tw"] = "Many Mission Terminal",
 	},
 	mod_description = {
 		en = "Shows every joinable mission on the mission board, with a filter panel and a sortable mission list.",
 		["zh-cn"] = "在任务面板上显示所有可加入的任务，附带筛选面板和可排序的任务列表。",
-		ru = "Показывает все доступные для присоединения миссии на доске миссий, с панелью фильтров и сортируемым списком.",
+		ru = "Many Mission Terminal - Показывает все доступные для присоединения миссии на доске миссий, с панелью фильтров и сортируемым списком.",
 		["zh-tw"] = "在任務面板上顯示所有可加入的任務，附帶篩選面板和可排序的任務列表。",
 	},
 	cat_common = {
@@ -49,7 +49,7 @@ return {
 	col_side = {
 		en = "SIDE",
 		["zh-cn"] = "支线",
-		ru = "ЗАДАЧА",
+		ru = "ДОП",
 		["zh-tw"] = "支線",
 	},
 	col_time = {
@@ -115,19 +115,19 @@ return {
 	cond_specials = {
 		en = "Waves of Specials",
 		["zh-cn"] = "特殊敌人潮",
-		ru = "Волны спецсил",
+		ru = "Волны специалистов",
 		["zh-tw"] = "特殊敵人潮",
 	},
 	cond_daemonhosts = {
 		en = "Daemonhosts",
 		["zh-cn"] = "恶魔宿主",
-		ru = "Одержимые демоном",
+		ru = "Демонхосты",
 		["zh-tw"] = "惡魔宿主",
 	},
 	cond_poxbursters = {
 		en = "Poxbursters",
 		["zh-cn"] = "瘟疫爆破者",
-		ru = "Чумные бомбы",
+		ru = "Чумные взрывуны",
 		["zh-tw"] = "瘟疫爆破者",
 	},
 	filter_group_category = {
