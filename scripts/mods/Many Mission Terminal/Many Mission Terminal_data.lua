@@ -20,6 +20,11 @@ return {
 						type = "checkbox",
 						default_value = true,
 					},
+					{
+						setting_id = "notify_skips",
+						type = "checkbox",
+						default_value = true,
+					},
 				},
 			},
 		},

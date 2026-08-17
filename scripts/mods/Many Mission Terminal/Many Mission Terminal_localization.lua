@@ -142,6 +142,48 @@ return {
 		ru = "УСЛОВИЯ",
 		["zh-tw"] = "環境狀況",
 	},
+	exclude_group_condition = {
+		en = "SKIP CONDITIONS",
+		["zh-cn"] = "跳过环境状况",
+		ru = "ПРОПУСКАТЬ УСЛОВИЯ",
+		["zh-tw"] = "跳過環境狀況",
+	},
+	exclude_group_mission = {
+		en = "SKIP MISSIONS",
+		["zh-cn"] = "跳过任务",
+		ru = "ПРОПУСКАТЬ МИССИИ",
+		["zh-tw"] = "跳過任務",
+	},
+	intercept_skipped = {
+		en = "Skipping {mission} - {why} - searching again",
+		["zh-cn"] = "跳过 {mission} - {why} - 重新搜索",
+		ru = "ПРОПУСК: {mission} - {why} - НОВЫЙ ПОИСК",
+		["zh-tw"] = "跳過 {mission} - {why} - 重新搜尋",
+	},
+	intercept_unchecked = {
+		en = "Could not check this mission against Exclusions - joining",
+		["zh-cn"] = "无法对照排除项检查此任务 - 加入中",
+		ru = "НЕ УДАЛОСЬ ПРОВЕРИТЬ МИССИЮ ПО ИСКЛЮЧЕНИЯМ - ВХОД",
+		["zh-tw"] = "無法對照排除項檢查此任務 - 加入中",
+	},
+	intercept_limit = {
+		en = "Exclusion skip limit reached - joining",
+		["zh-cn"] = "已达排除跳过上限 - 加入中",
+		ru = "ДОСТИГНУТ ПРЕДЕЛ ПРОПУСКОВ - ВХОД",
+		["zh-tw"] = "已達排除跳過上限 - 加入中",
+	},
+	tab_filters = {
+		en = "Filters",
+		["zh-cn"] = "筛选",
+		ru = "Фильтры",
+		["zh-tw"] = "篩選",
+	},
+	tab_exclusions = {
+		en = "Exclusions",
+		["zh-cn"] = "排除项",
+		ru = "Исключения",
+		["zh-tw"] = "排除項",
+	},
 	filter_group_match = {
 		en = "CONDITION MATCHING",
 		["zh-cn"] = "条件匹配",
@@ -165,12 +207,6 @@ return {
 		["zh-cn"] = "匹配任一勾选的状况",
 		ru = "Совпадение по любому отмеченному условию",
 		["zh-tw"] = "符合任一勾選的狀況",
-	},
-	filter_title = {
-		en = "Filters",
-		["zh-cn"] = "筛选",
-		ru = "Фильтры",
-		["zh-tw"] = "篩選",
 	},
 	group_board = {
 		en = "Mission Board",
@@ -231,5 +267,17 @@ return {
 		["zh-cn"] = "包含最近过期但仍可加入的任务",
 		ru = "Показывать недавно истёкшие миссии (всё ещё доступные)",
 		["zh-tw"] = "包含最近過期但仍可加入的任務",
+	},
+	notify_skips = {
+		en = "Announce skipped Quickplay missions",
+		["zh-cn"] = "提示已跳过的快速游戏任务",
+		ru = "Сообщать о пропущенных миссиях быстрой игры",
+		["zh-tw"] = "提示已跳過的快速遊戲任務",
+	},
+	intercept_backfill = {
+		en = "Skipping {mission} - already in progress - searching again",
+		["zh-cn"] = "跳过 {mission} - 已在进行中 - 重新搜索",
+		ru = "ПРОПУСК: {mission} - УЖЕ ИДЁТ - НОВЫЙ ПОИСК",
+		["zh-tw"] = "跳過 {mission} - 已在進行中 - 重新搜尋",
 	},
 }

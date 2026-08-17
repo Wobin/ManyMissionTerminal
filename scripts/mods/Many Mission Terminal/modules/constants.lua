@@ -110,7 +110,6 @@ local FILTER = {
 	width = 330,
 	top = 90,
 	pad = 22,
-	header_height = 66,
 	group_height = 34,
 	row_height = 30,
 	box_size = 18,
@@ -120,6 +119,30 @@ local FILTER = {
 	slide_rate = 9,
 	z = 300,
 	side_none = "none",
+	tab_bar_height = 34,
+	tab_pad = 14,
+	row_pad = 18,
+	bottom_margin = 48,
+	scroll_step = 54,
+	bar_width = 5,
+	bar_inset = 6,
+	canvas_height = 1080,
+}
+
+local FILTER_TABS = {
+	{
+		key = "filters",
+		mod_loc = "tab_filters",
+	},
+	{
+		key = "exclusions",
+		mod_loc = "tab_exclusions",
+	},
+}
+
+local EXCLUDE_MISSION_TYPES = {
+	expeditions = true,
+	horde = true,
 }
 
 local FILTER_CATEGORIES = {
@@ -355,6 +378,8 @@ return {
 	FILTER = FILTER,
 	FILTER_CATEGORIES = FILTER_CATEGORIES,
 	FILTER_CONDITIONS = FILTER_CONDITIONS,
+	FILTER_TABS = FILTER_TABS,
+	EXCLUDE_MISSION_TYPES = EXCLUDE_MISSION_TYPES,
 	ARCHIVE_URL = ARCHIVE_URL,
 	ARCHIVE_REFRESH_SECONDS = ARCHIVE_REFRESH_SECONDS,
 	ARCHIVE_RETRY_BASE = ARCHIVE_RETRY_BASE,
