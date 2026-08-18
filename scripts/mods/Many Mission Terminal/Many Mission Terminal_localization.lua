@@ -154,6 +154,12 @@ return {
 		ru = "ПРОПУСКАТЬ МИССИИ",
 		["zh-tw"] = "跳過任務",
 	},
+	exclude_group_announcer = {
+		en = "SKIP VOICES",
+		["zh-cn"] = "跳过语音角色",
+		ru = "ПРОПУСКАТЬ ГОЛОСА",
+		["zh-tw"] = "跳過語音角色",
+	},
 	intercept_skipped = {
 		en = "Skipping {mission} - {why} - searching again",
 		["zh-cn"] = "跳过 {mission} - {why} - 重新搜索",

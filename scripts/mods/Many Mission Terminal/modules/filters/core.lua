@@ -51,15 +51,24 @@ local function prune_exclusions(state)
 		known_condition[FILTER_CONDITIONS[i].key] = true
 	end
 
+	local known_announcer = {}
+	local announcers = Missions.announcers()
+
+	for i = 1, #announcers do
+		known_announcer[announcers[i].key] = true
+	end
+
 	local dropped = 0
 
 	for group, entries in pairs(state) do
-		if group ~= "condition" and group ~= "map" then
+		if group ~= "condition" and group ~= "map" and group ~= "announcer" then
 			state[group] = nil
 			dropped = dropped + 1
 		else
 			for key in pairs(entries) do
-				local valid = group == "condition" and known_condition[key] or group == "map" and MissionTemplates[key]
+				local valid = group == "condition" and known_condition[key]
+					or group == "map" and MissionTemplates[key]
+					or group == "announcer" and known_announcer[key]
 
 				if not valid then
 					entries[key] = nil
@@ -208,6 +217,26 @@ function Filters.mission_excluded(mission)
 
 	if Filters.exclusion_enabled("map", mission.map) then
 		return true, "map " .. tostring(mission.map), map_display_name(mission.map)
+	end
+
+	local voices, giver = Missions.mission_voice_keys(mission)
+
+	if giver and Filters.exclusion_enabled("announcer", giver) then
+		return true, "announcer " .. tostring(Missions.mission_giver(mission)), Localize(giver)
+	end
+
+	local supporting = {}
+
+	for key in pairs(voices) do
+		if key ~= giver and Filters.exclusion_enabled("announcer", key) then
+			supporting[#supporting + 1] = key
+		end
+	end
+
+	if #supporting > 0 then
+		table.sort(supporting)
+
+		return true, "supporting voice " .. supporting[1], Localize(supporting[1])
 	end
 
 	local conditions = Filters.conditions_for_circumstance(mission.circumstance)

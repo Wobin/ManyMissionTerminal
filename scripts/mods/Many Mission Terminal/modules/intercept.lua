@@ -263,6 +263,16 @@ function Intercept.update()
 	pi:wanted_mission_selected(queue_code, queue_private, queue_reef)
 end
 
+function Intercept.cancel()
+	requeue_at = nil
+	queue_code = nil
+	queue_private = nil
+	queue_reef = nil
+	requeue_count = 0
+
+	clear_session()
+end
+
 function Intercept.debug_state()
 	return {
 		armed = armed(),

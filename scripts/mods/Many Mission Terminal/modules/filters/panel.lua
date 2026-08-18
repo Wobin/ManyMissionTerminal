@@ -3,6 +3,7 @@ local mod = get_mod("Many Mission Terminal")
 local ScrollbarPassTemplates = require("scripts/ui/pass_templates/scrollbar_pass_templates")
 local UIWidget = require("scripts/managers/ui/ui_widget")
 local UIFontSettings = require("scripts/managers/ui/ui_font_settings")
+local InputDevice = require("scripts/managers/input/input_device")
 
 local C = mod:io_dofile("Many Mission Terminal/scripts/mods/Many Mission Terminal/modules/constants")
 
@@ -24,6 +25,7 @@ local pending_filter_group
 local pending_filter_key
 local pending_filter_exclusion
 local pending_filter_tab
+local pending_filter_section
 
 local filter_ui = {
 	open = false,
@@ -33,6 +35,8 @@ local filter_ui = {
 	scan_dirty = true,
 	tab = "filters",
 	scroll = 0,
+	section = {},
+	focus = nil,
 }
 
 -- ─────────────────────────────────────────────────────────
@@ -91,11 +95,7 @@ function Panel.body_limit()
 end
 
 function Panel.body_height()
-	if filter_ui.base_body then
-		return filter_ui.base_body
-	end
-
-	return math.min(Panel.content_height(), Panel.body_limit())
+	return Panel.body_limit()
 end
 
 function Panel.max_scroll()
@@ -368,13 +368,64 @@ function Panel.group_definition(index)
 	}
 	label_style.text_color = Color.terminal_text_header(255, true)
 
+	local chevron_style = table.clone(label_style)
+	chevron_style.text_horizontal_alignment = "right"
+	chevron_style.offset = {
+		FILTER.pad,
+		Panel.row_y(index),
+		4,
+	}
+
 	return UIWidget.create_definition({
+		{
+			pass_type = "rect",
+			style_id = "highlight",
+			style = {
+				horizontal_alignment = "left",
+				vertical_alignment = "top",
+				visible = false,
+				size = {
+					FILTER.width - FILTER.pad * 2,
+					FILTER.group_height,
+				},
+				offset = {
+					FILTER.pad,
+					Panel.row_y(index),
+					3,
+				},
+				color = Color.terminal_background_selected(140, true),
+			},
+		},
+		{
+			pass_type = "hotspot",
+			content_id = "hotspot",
+			style = {
+				horizontal_alignment = "left",
+				vertical_alignment = "top",
+				size = {
+					FILTER.width - FILTER.pad * 2,
+					FILTER.group_height,
+				},
+				offset = {
+					FILTER.pad,
+					Panel.row_y(index),
+					3,
+				},
+			},
+		},
 		{
 			pass_type = "text",
 			style_id = "label",
 			value_id = "label",
 			value = "",
 			style = label_style,
+		},
+		{
+			pass_type = "text",
+			style_id = "chevron",
+			value_id = "chevron",
+			value = "",
+			style = chevron_style,
 		},
 	}, FILTER.anchor)
 end
@@ -590,8 +641,8 @@ function Panel.reset()
 	filter_ui.open = mod:get("_filter_open") == true
 	filter_ui.slide = filter_ui.open and 1 or 0
 	filter_ui.scroll = 0
-	filter_ui.base_body = nil
 	filter_ui.content_height = nil
+	table.clear(filter_ui.section)
 	table.clear(filter_ui.row_widgets)
 end
 
@@ -637,6 +688,10 @@ function Panel.create_widgets(view)
 
 		if row.kind == "group" then
 			widget = view:_create_widget("mmt_filter_group_" .. i, Panel.group_definition(i))
+			widget.content.chevron = row.expanded and "-" or "+"
+			widget.content.hotspot.pressed_callback = function ()
+				pending_filter_section = row.section
+			end
 		else
 			widget = view:_create_widget("mmt_filter_row_" .. i, Panel.row_definition(i))
 			widget.content.hotspot.pressed_callback = function ()
@@ -665,6 +720,7 @@ end
 
 set_filter_open = function (view, open)
 	filter_ui.open = open
+	filter_ui.focus = open and 1 or nil
 	mod:set("_filter_open", open, false)
 	LAYOUT.applied_intrusion = nil
 end
@@ -725,18 +781,21 @@ function Panel.update(view, dt)
 		filter_ui.scan_page = page_index
 		local signature
 
+		local chosen
+
 		if filter_ui.tab == "exclusions" then
-			signature = FilterRows.build_exclusions(filter_ui.rows)
+			signature, chosen = FilterRows.build_exclusions(filter_ui.rows, Panel.section())
 		else
-			signature = FilterRows.build_filters(filter_ui.rows, logic)
+			signature, chosen = FilterRows.build_filters(filter_ui.rows, logic, Panel.section())
+		end
+
+		if chosen and chosen ~= filter_ui.section[filter_ui.tab] then
+			filter_ui.section[filter_ui.tab] = chosen
+
+			mod:set("_filter_section_" .. filter_ui.tab, chosen, false)
 		end
 
 		Panel.measure_rows()
-
-		if filter_ui.tab == "filters" then
-			filter_ui.base_body = nil
-			filter_ui.base_body = math.min(Panel.content_height(), Panel.body_limit())
-		end
 		if signature ~= filter_ui.signature then
 			filter_ui.signature = signature
 			filter_ui.scroll = 0
@@ -840,9 +899,13 @@ function Panel.update(view, dt)
 		widget.visible = visible and filter_ui.slide > 0.02 and Panel.row_in_view(i)
 		widget.dirty = true
 
-		if row.kind == "row" then
+		local focused = filter_ui.focus == i and InputDevice.gamepad_active
+
+		if row.kind == "group" then
+			widget.style.highlight.visible = focused
+		elseif row.kind == "row" then
 			local style = widget.style
-			local is_hover = widget.content.hotspot.is_hover == true
+			local is_hover = widget.content.hotspot.is_hover == true or focused
 
 			style.tick.visible = Filters.row_enabled(row)
 			style.highlight.visible = is_hover
@@ -856,6 +919,92 @@ function Panel.update(view, dt)
 			end
 		end
 	end
+end
+
+function Panel.section()
+	local tab = filter_ui.tab
+
+	if filter_ui.section[tab] == nil then
+		filter_ui.section[tab] = mod:get("_filter_section_" .. tab) or false
+	end
+
+	return filter_ui.section[tab] or nil
+end
+
+function Panel.close()
+	set_filter_open(nil, false)
+end
+
+function Panel.handle_gamepad(input_service)
+	if not filter_ui.open or not filter_ui.focus or #filter_ui.rows == 0 then
+		return false
+	end
+
+	if input_service:get("navigate_down_pressed") then
+		filter_ui.focus = math.min(filter_ui.focus + 1, #filter_ui.rows)
+	elseif input_service:get("navigate_up_pressed") then
+		filter_ui.focus = math.max(filter_ui.focus - 1, 1)
+	elseif input_service:get("confirm_pressed") then
+		local row = filter_ui.rows[filter_ui.focus]
+
+		if row and row.kind == "group" then
+			pending_filter_section = row.section
+		elseif row then
+			pending_filter_group = row.group
+			pending_filter_key = row.key
+			pending_filter_exclusion = row.exclusion
+		end
+	end
+
+	return true
+end
+
+function Panel.commit_pending_section()
+	if not pending_filter_section then
+		return
+	end
+
+	local section = pending_filter_section
+	pending_filter_section = nil
+
+	if section == filter_ui.section[filter_ui.tab] then
+		local order = {}
+
+		for i = 1, #filter_ui.rows do
+			local row = filter_ui.rows[i]
+
+			if row.kind == "group" then
+				order[#order + 1] = row.section
+			end
+		end
+
+		if #order < 2 then
+			return
+		end
+
+		local at
+
+		for i = 1, #order do
+			if order[i] == section then
+				at = i
+
+				break
+			end
+		end
+
+		if not at then
+			return
+		end
+
+		section = at < #order and order[at + 1] or order[at - 1]
+	end
+
+	filter_ui.section[filter_ui.tab] = section
+	filter_ui.focus = filter_ui.focus and 1 or nil
+	filter_ui.scroll = 0
+	filter_ui.scan_dirty = true
+
+	mod:set("_filter_section_" .. filter_ui.tab, section, false)
 end
 
 function Panel.is_open()
@@ -880,6 +1029,7 @@ function Panel.commit_pending_tab()
 
 	if tab ~= filter_ui.tab then
 		filter_ui.tab = tab
+		filter_ui.focus = filter_ui.focus and 1 or nil
 		filter_ui.scroll = 0
 		filter_ui.scan_dirty = true
 	end

@@ -13,34 +13,81 @@ local side_display_name = Missions.side_display_name
 
 local FilterRows = {}
 
-local function grouper(rows, parts, key_of)
-	return function (title_key, entries)
+local function grouper(rows, parts, key_of, open, preferred)
+	local groups = {}
+
+	local function add_group(title_key, entries)
 		if #entries == 0 then
 			return
 		end
 
-		rows[#rows + 1] = {
-			kind = "group",
-			label = mod:localize(title_key),
+		groups[#groups + 1] = {
+			key = title_key,
+			entries = entries,
 		}
-		parts[#parts + 1] = title_key
-
-		for i = 1, #entries do
-			rows[#rows + 1] = entries[i]
-			parts[#parts + 1] = key_of(entries[i])
-		end
 	end
+
+	local function flush()
+		local chosen
+
+		for i = 1, #groups do
+			if groups[i].key == open then
+				chosen = open
+
+				break
+			end
+		end
+
+		if not chosen and preferred then
+			for i = 1, #groups do
+				if groups[i].key == preferred then
+					chosen = preferred
+
+					break
+				end
+			end
+		end
+
+		chosen = chosen or groups[1] and groups[1].key
+
+		for i = 1, #groups do
+			local group = groups[i]
+			local expanded = group.key == chosen
+
+			rows[#rows + 1] = {
+				kind = "group",
+				section = group.key,
+				expanded = expanded,
+				label = mod:localize(group.key),
+			}
+			parts[#parts + 1] = group.key .. (expanded and "*" or "")
+
+			if expanded then
+				for j = 1, #group.entries do
+					local entry = group.entries[j]
+
+					entry.section = group.key
+					rows[#rows + 1] = entry
+					parts[#parts + 1] = key_of(entry)
+				end
+			end
+		end
+
+		return chosen
+	end
+
+	return add_group, flush
 end
 
-function FilterRows.build_exclusions(rows)
+function FilterRows.build_exclusions(rows, open)
 	table.clear(rows)
 
 	local parts = {
 		"exclusions",
 	}
-	local add_group = grouper(rows, parts, function (entry)
+	local add_group, flush = grouper(rows, parts, function (entry)
 		return entry.key
-	end)
+	end, open)
 
 	local conditions = {}
 
@@ -78,10 +125,27 @@ function FilterRows.build_exclusions(rows)
 
 	add_group("exclude_group_mission", maps)
 
-	return table.concat(parts, "|")
+	local announcers = {}
+	local source = Missions.announcers()
+
+	for i = 1, #source do
+		announcers[#announcers + 1] = {
+			kind = "row",
+			exclusion = true,
+			group = "announcer",
+			key = source[i].key,
+			label = source[i].label,
+		}
+	end
+
+	add_group("exclude_group_announcer", announcers)
+
+	local chosen = flush()
+
+	return table.concat(parts, "|"), chosen
 end
 
-function FilterRows.build_filters(rows, logic)
+function FilterRows.build_filters(rows, logic, open)
 	table.clear(rows)
 
 	local mission_data = logic and logic._mission_data
@@ -91,7 +155,7 @@ function FilterRows.build_filters(rows, logic)
 	}
 
 	if not mission_data or not page_filter then
-		return ""
+		return "", open
 	end
 
 	local seen_category = {}
@@ -128,9 +192,9 @@ function FilterRows.build_filters(rows, logic)
 	end
 
 	local parts = {}
-	local add_group = grouper(rows, parts, function (entry)
+	local add_group, flush = grouper(rows, parts, function (entry)
 		return entry.group .. "." .. entry.key
-	end)
+	end, open, "filter_group_category")
 
 	local conditions = {}
 
@@ -209,7 +273,9 @@ function FilterRows.build_filters(rows, logic)
 
 	add_group("filter_group_state", state_rows)
 
-	return table.concat(parts, ",")
+	local chosen = flush()
+
+	return table.concat(parts, ","), chosen
 end
 
 return FilterRows

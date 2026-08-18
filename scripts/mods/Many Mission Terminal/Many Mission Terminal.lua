@@ -1,13 +1,13 @@
 --[[
 Name: Many Mission Terminal
 Author: Wobin
-Date: 18/08/2026
-Version: 2.0.0
+Date: 19/08/2026
+Version: 2.1.0
 Repository: https://github.com/Wobin/ManyMissionTerminal
 --]]
 
 local mod = get_mod("Many Mission Terminal")
-mod.version = "2.0.0"
+mod.version = "2.1.0"
 
 local MMT = get_mod("ManyMoreTry")
 local MissionBoardViewSettings = require("scripts/ui/views/mission_board_view/mission_board_view_settings")
@@ -285,6 +285,7 @@ local function resolve_press(view)
 	end
 
 	Panel.commit_pending_tab()
+	Panel.commit_pending_section()
 
 	local group, key, is_exclusion = Panel.take_pending()
 
@@ -338,19 +339,44 @@ local function update_input_alias()
 	end
 end
 
+local MMT_INPUT_ALIAS = {
+	"keyboard_f",
+	"xbox_controller_left_trigger",
+	"ps4_controller_l2",
+	description = "",
+	bindable = false,
+}
+
+local MMT_INPUT_SETTING = {
+	key_alias = "mmterm_filter_board",
+	type = "pressed",
+}
+
+local view_input_settings
+
+local function install_input_alias(enabled)
+	if not view_input_settings then
+		return
+	end
+
+	view_input_settings.aliases.mmterm_filter_board = enabled and MMT_INPUT_ALIAS or nil
+	view_input_settings.settings.mmterm_filter_board = enabled and MMT_INPUT_SETTING or nil
+
+	local aliases = Managers.input and Managers.input._aliases and Managers.input._aliases.View
+
+	if aliases then
+		if enabled then
+			update_input_alias()
+		else
+			aliases._aliases.mmterm_filter_board = nil
+		end
+	end
+end
+
 mod:hook_require("scripts/settings/input/default_view_input_settings", function (DefaultViewInputSettings)
-	DefaultViewInputSettings.aliases.mmterm_filter_board = {
-		"keyboard_f",
-		"xbox_controller_left_trigger",
-		"ps4_controller_l2",
-		description = "",
-		bindable = false,
-	}
-	DefaultViewInputSettings.settings.mmterm_filter_board = {
-		key_alias = "mmterm_filter_board",
-		type = "pressed",
-	}
-	update_input_alias()
+	view_input_settings = DefaultViewInputSettings
+
+	install_input_alias(true)
 end)
 
 mod.on_all_mods_loaded = function ()
@@ -410,7 +436,41 @@ mod.mmt_tune_table = function (dx, dy)
 	return ox, oy
 end
 
+local teardown_pending = false
+
+local function mod_is_active()
+	local ok, enabled = pcall(function ()
+		return mod:is_enabled()
+	end)
+
+	return not ok or enabled ~= false
+end
+
+local function restore_vanilla_state()
+	Grid.apply_slots(false)
+	Card.restore_faded()
+
+	expanded_map = nil
+	table.clear(expanded_ids)
+	Card.reset()
+	Overlays.reset()
+	Table.reset()
+	Panel.reset()
+
+	layout_dirty = true
+end
+
 mod.update = function ()
+	if not mod_is_active() then
+		if teardown_pending and not board_is_open() then
+			teardown_pending = false
+
+			restore_vanilla_state()
+		end
+
+		return
+	end
+
 	Intercept.update()
 end
 
@@ -457,8 +517,15 @@ local MMT_LEGEND_INPUTS = {
 }
 
 mod.on_enabled = function ()
+	teardown_pending = false
+
 	refresh_settings()
+	install_input_alias(true)
 	Grid.apply_slots(show_all_missions)
+
+	layout_dirty = true
+
+	Panel.mark_scan_dirty()
 
 	local legend_inputs = MissionBoardViewSettings.view_elements.input_legend.context.legend_inputs
 	for i = 1, #MMT_LEGEND_INPUTS do
@@ -480,8 +547,16 @@ mod.on_disabled = function ()
 	table.array_remove_if(MissionBoardViewSettings.view_elements.input_legend.context.legend_inputs, function (v)
 		return v.input_action == "mmterm_filter_board"
 	end)
-	if not board_is_open() then
-		Grid.apply_slots(false)
+
+	install_input_alias(false)
+	Intercept.cancel()
+
+	if board_is_open() then
+		teardown_pending = true
+	else
+		teardown_pending = false
+
+		restore_vanilla_state()
 	end
 end
 
@@ -646,6 +721,32 @@ mod:hook(CLASS.MissionBoardView, "_set_selected", function (func, self, id, ...)
 	end
 
 	return func(self, id, ...)
+end)
+
+mod:hook(CLASS.MissionBoardView, "_handle_input", function (func, self, input_service, dt, t)
+	if not show_all_missions or not InputDevice.gamepad_active or self._mission_board_options then
+		return func(self, input_service, dt, t)
+	end
+
+	if not Panel.is_open() or not input_service then
+		return func(self, input_service, dt, t)
+	end
+
+	local ok, owned = pcall(function ()
+		if input_service:get("back") then
+			Panel.close()
+
+			return true
+		end
+
+		return Panel.handle_gamepad(input_service)
+	end)
+
+	if not ok or not owned then
+		return func(self, input_service, dt, t)
+	end
+
+	return func(self, input_service:null_service(), dt, t)
 end)
 
 mod:hook(CLASS.MissionBoardView, "_on_back_pressed", function (func, self, ...)

@@ -10,11 +10,18 @@ slots for.
 - **Mission list.** Click a map to open a sortable table of its missions: time remaining, type,
   circumstance, side objective, and an icon per condition.
 - **Filter panel.** Press **F** (Left Trigger / L2) to open the drawer, again to switch tabs, again to
-  close it.
+  close it. Each tab is an accordion with one section open at a time - click a section header to open
+  it, or click the open one to move to the next.
   - **Filters** decides what the board shows: mission type, condition, and side objective, with a
     match-any/match-all toggle. Campaign missions are hidden by default.
-  - **Exclusions** decides what Quickplay refuses. Tick any map or condition and Quickplay will not
-    put you in it.
+  - **Exclusions** decides what Quickplay refuses. Tick any map, condition, or voice and Quickplay
+    will not put you in it.
+- **Skip a voice you are tired of.** The Exclusions tab lists every mission giver and supporting
+  speaker. Ticking one skips missions where they announce the briefing *or* chime in during the
+  mission. The announcer is chosen per mission rather than per map, so the same map can be excluded on
+  one instance and offered on another.
+- **Controller support in the drawer.** With the panel open, the D-pad moves between rows, **A** /
+  **Cross** toggles a row or opens a section, and **B** closes the panel.
 - **Quickplay screening.** When Exclusions are set, the mod inspects each mission you are matched into
   before the map loads. If it matches an exclusion it leaves the party and searches again, and it
   remembers what it rejected so the same mission is not retried.
