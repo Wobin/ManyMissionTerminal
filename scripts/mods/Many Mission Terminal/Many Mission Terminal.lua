@@ -2,12 +2,11 @@
 Name: Many Mission Terminal
 Author: Wobin
 Date: 19/08/2026
-Version: 2.1.0
 Repository: https://github.com/Wobin/ManyMissionTerminal
 --]]
 
 local mod = get_mod("Many Mission Terminal")
-mod.version = "2.1.0"
+mod.version = mod.get_metadata and mod:get_metadata("version") or "unknown"
 
 local MMT = get_mod("ManyMoreTry")
 local MissionBoardViewSettings = require("scripts/ui/views/mission_board_view/mission_board_view_settings")
@@ -390,7 +389,7 @@ mod.on_all_mods_loaded = function ()
 		return Filters.exclusion_count() > 0
 	end, Filters.skip_backfill, function ()
 		return notify_skips
-	end)
+	end, Filters.event_only)
 end
 
 mod:add_global_localize_strings({
@@ -405,6 +404,18 @@ mod:add_global_localize_strings({
 		["zh-cn"] = "快速游戏若匹配到已在进行中的任务，将退出并重新搜索。",
 		ru = "Если быстрая игра подберёт уже идущую миссию, поиск начнётся заново.",
 		["zh-tw"] = "快速遊戲若匹配到已在進行中的任務，將退出並重新搜尋。",
+	},
+	loc_mmterm_event_only = {
+		en = "Only Play Event Missions",
+		["zh-cn"] = "仅进行活动任务",
+		ru = "Только событийные миссии",
+		["zh-tw"] = "僅進行活動任務",
+	},
+	loc_mmterm_event_only_desc = {
+		en = "Quickplay will leave and search again unless the mission is an Event mission.",
+		["zh-cn"] = "快速游戏若匹配到非活动任务，将退出并重新搜索。",
+		ru = "Если быстрая игра подберёт не событийную миссию, поиск начнётся заново.",
+		["zh-tw"] = "快速遊戲若匹配到非活動任務，將退出並重新搜尋。",
 	},
 })
 
@@ -421,6 +432,20 @@ mod:hook(CLASS.ViewElemenMissionBoardOptions, "present", function (func, self, p
 			end,
 			on_activated = function (value)
 				Filters.set_skip_backfill(value)
+			end,
+		}
+		presentation_data[#presentation_data + 1] = {
+			display_name = "loc_mmterm_event_only",
+			id = "mmterm_event_only",
+			tooltip_text = "loc_mmterm_event_only_desc",
+			widget_type = "checkbox",
+			start_value = Filters.event_only(),
+			get_function = function ()
+				return Filters.event_only()
+			end,
+			on_activated = function (value)
+				Filters.set_event_only(value)
+				Intercept.cancel()
 			end,
 		}
 	end
@@ -504,6 +529,10 @@ mod.on_setting_changed = function (setting_id)
 	end
 end
 
+
+mod.on_settings_reset = function()
+	refresh_settings()
+end
 local MMT_LEGEND_INPUTS = {
 	{
 		on_pressed_callback = "__mod_mmterm_filter_callback",

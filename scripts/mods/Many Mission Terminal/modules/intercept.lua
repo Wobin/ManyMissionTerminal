@@ -12,6 +12,7 @@ local Intercept = {}
 local is_excluded_fn
 local has_exclusions_fn
 local skip_backfill_fn
+local event_only_fn
 local notify_skips_fn
 local installed = false
 local session_id
@@ -74,6 +75,10 @@ local function armed()
 	end
 
 	if skip_backfill_fn and skip_backfill_fn() then
+		return true
+	end
+
+	if event_only_fn and event_only_fn() then
 		return true
 	end
 
@@ -141,6 +146,7 @@ local function decide(sid)
 		end
 
 		local backfill_blocked = payload.backfill == true and skip_backfill_fn ~= nil and skip_backfill_fn()
+		local event_blocked = event_only_fn ~= nil and event_only_fn() and mission.category ~= "event"
 		local excluded, why, label = false, "no predicate", nil
 
 		if is_excluded_fn then
@@ -153,6 +159,10 @@ local function decide(sid)
 			verdict = "SKIP"
 			why = "mission already in progress (backfill)"
 			label = nil
+		elseif event_blocked then
+			verdict = "SKIP"
+			why = "category " .. tostring(mission.category) .. " is not an event"
+			label = nil
 		elseif excluded then
 			verdict = "SKIP"
 		end
@@ -162,9 +172,11 @@ local function decide(sid)
 		mod:info("intercept: %s %s [%s] backfill=%s - %s", verdict, tostring(mission.map),
 			tostring(mission.circumstance), tostring(payload.backfill), tostring(why))
 
-		if backfill_blocked or excluded then
+		if backfill_blocked or event_blocked or excluded then
 			rejected_sessions[sid] = mission_label(mission)
-			reject_reason = backfill_blocked and "intercept_backfill" or "intercept_skipped"
+			reject_reason = backfill_blocked and "intercept_backfill"
+				or event_blocked and "intercept_event_only"
+				or "intercept_skipped"
 			decision = "reject"
 		else
 			decision = "join"
@@ -200,7 +212,9 @@ local function do_reject()
 
 	local label = rejected_sessions[session_id] or "?"
 
-	if requeue_count >= REQUEUE_LIMIT then
+	local search_forever = event_only_fn ~= nil and event_only_fn()
+
+	if not search_forever and requeue_count >= REQUEUE_LIMIT then
 		if notify_skips_fn == nil or notify_skips_fn() then
 			mod:notify(mod:localize("intercept_limit"))
 		end
@@ -269,7 +283,9 @@ function Intercept.cancel()
 	queue_private = nil
 	queue_reef = nil
 	requeue_count = 0
+	unarmed_session = nil
 
+	table.clear(rejected_sessions)
 	clear_session()
 end
 
@@ -290,15 +306,17 @@ function Intercept.debug_state()
 		rejected_sessions = rejected_sessions,
 		has_exclusions = has_exclusions_fn ~= nil and has_exclusions_fn(),
 		skip_backfill = skip_backfill_fn ~= nil and skip_backfill_fn(),
+		event_only = event_only_fn ~= nil and event_only_fn(),
 		notify_skips = notify_skips_fn ~= nil and notify_skips_fn(),
 		installed = installed,
 	}
 end
 
-function Intercept.install(predicate, has_exclusions, skip_backfill, notify_skips)
+function Intercept.install(predicate, has_exclusions, skip_backfill, notify_skips, event_only)
 	is_excluded_fn = predicate
 	has_exclusions_fn = has_exclusions
 	skip_backfill_fn = skip_backfill
+	event_only_fn = event_only
 	notify_skips_fn = notify_skips
 
 	if installed then

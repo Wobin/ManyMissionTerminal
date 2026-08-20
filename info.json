@@ -1,14 +1,14 @@
 {
-  "name": "Many Mission Terminal",
-  "author": "Wobin",
-  "version": "2.1.0",
-  "source": "https://github.com/Wobin/ManyMissionTerminal",
-  "description": "Shows every joinable mission on the mission board, with a filter panel and a sortable mission list.",
-  "order": {
-    "require": [],
-    "this_after": [
-      "ManyMoreTry"
-    ],
-    "this_before": []
-  }
+	"name": "Many Mission Terminal",
+	"author": "Wobin",
+	"version": "2.1.1",
+	"description": "Shows every joinable mission on the mission board, with a filter panel and a sortable mission list.",
+	"source": "https://github.com/Wobin/ManyMissionTerminal",
+	"order": {
+		"require": [],
+		"this_after": [
+			"ManyMoreTry"
+		],
+		"this_before": []
+	}
 }

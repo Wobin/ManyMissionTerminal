@@ -17,6 +17,7 @@ local exclusion_state
 local exclusion_total
 local conditions_by_circumstance
 local skip_backfill
+local event_only
 
 local function filters()
 	if not filter_state then
@@ -266,6 +267,20 @@ function Filters.skip_backfill()
 	end
 
 	return skip_backfill
+end
+
+function Filters.event_only()
+	if event_only == nil then
+		event_only = mod:get("_event_only") == true
+	end
+
+	return event_only
+end
+
+function Filters.set_event_only(value)
+	event_only = value == true
+
+	mod:set("_event_only", event_only, false)
 end
 
 function Filters.set_skip_backfill(value)

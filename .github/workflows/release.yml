@@ -34,6 +34,8 @@ jobs:
           fi
           unzip -l "Many-Mission-Terminal-${VERSION}.zip" | grep -q 'Many Mission Terminal/Many Mission Terminal.mod' \
             || { echo "Missing Many Mission Terminal.mod" && exit 1; }
+          unzip -l "Many-Mission-Terminal-${VERSION}.zip" | grep -q "Many Mission Terminal/info.json" \
+            || { echo "Missing info.json" && exit 1; }
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v7

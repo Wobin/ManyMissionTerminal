@@ -286,4 +286,10 @@ return {
 		ru = "ПРОПУСК: {mission} - УЖЕ ИДЁТ - НОВЫЙ ПОИСК",
 		["zh-tw"] = "跳過 {mission} - 已在進行中 - 重新搜尋",
 	},
+	intercept_event_only = {
+		en = "Skipping {mission} - not an Event mission - searching again",
+		["zh-cn"] = "跳过 {mission} - 非活动任务 - 重新搜索",
+		ru = "ПРОПУСК: {mission} - НЕ СОБЫТИЕ - НОВЫЙ ПОИСК",
+		["zh-tw"] = "跳過 {mission} - 非活動任務 - 重新搜尋",
+	},
 }
