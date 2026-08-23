@@ -14,12 +14,14 @@ slots for.
   it, or click the open one to move to the next.
   - **Filters** decides what the board shows: mission type, condition, and side objective, with a
     match-any/match-all toggle. Campaign missions are hidden by default.
-  - **Exclusions** decides what Quickplay refuses. Tick any map, condition, or voice and Quickplay
-    will not put you in it.
+  - **Exclusions** decides what Quickplay refuses. Tick any map, condition, voice, or side objective
+    and Quickplay will not put you in it.
 - **Skip a voice you are tired of.** The Exclusions tab lists every mission giver and supporting
   speaker. Ticking one skips missions where they announce the briefing *or* chime in during the
   mission. The announcer is chosen per mission rather than per map, so the same map can be excluded on
   one instance and offered on another.
+- **Skip grimoires and scriptures.** The Exclusions tab lists both side objectives. Ticking one stops
+  Quickplay putting you in a mission that carries it.
 - **Controller support in the drawer.** With the panel open, the D-pad moves between rows, **A** /
   **Cross** toggles a row or opens a section, and **B** closes the panel.
 - **Quickplay screening.** When Exclusions are set, the mod inspects each mission you are matched into
@@ -35,6 +37,9 @@ On the mission board's own options page:
 
 - **Only Start New Missions** - Quickplay will leave and search again if it matches you into a mission
   that is already underway.
+- **Only Play Event Missions** - Quickplay will leave and search again unless the mission is an Event
+  mission. While this is on, Quickplay keeps searching indefinitely rather than stopping after eight
+  requeues.
 
 In the mod options menu:
 

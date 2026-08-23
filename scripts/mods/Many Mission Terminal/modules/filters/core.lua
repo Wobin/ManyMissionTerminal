@@ -7,8 +7,10 @@ local Missions = mod:io_dofile("Many Mission Terminal/scripts/mods/Many Mission 
 
 local FILTER_CATEGORIES = C.FILTER_CATEGORIES
 local FILTER_CONDITIONS = C.FILTER_CONDITIONS
+local EXCLUDE_SIDES = C.EXCLUDE_SIDES
 local map_display_name = Missions.map_display_name
 local mission_is_live = Missions.mission_is_live
+local side_display_name = Missions.side_display_name
 
 local Filters = {}
 
@@ -59,10 +61,16 @@ local function prune_exclusions(state)
 		known_announcer[announcers[i].key] = true
 	end
 
+	local known_side = {}
+
+	for i = 1, #EXCLUDE_SIDES do
+		known_side[EXCLUDE_SIDES[i]] = true
+	end
+
 	local dropped = 0
 
 	for group, entries in pairs(state) do
-		if group ~= "condition" and group ~= "map" and group ~= "announcer" then
+		if group ~= "condition" and group ~= "map" and group ~= "announcer" and group ~= "side" then
 			state[group] = nil
 			dropped = dropped + 1
 		else
@@ -70,6 +78,7 @@ local function prune_exclusions(state)
 				local valid = group == "condition" and known_condition[key]
 					or group == "map" and MissionTemplates[key]
 					or group == "announcer" and known_announcer[key]
+					or group == "side" and known_side[key]
 
 				if not valid then
 					entries[key] = nil
@@ -218,6 +227,12 @@ function Filters.mission_excluded(mission)
 
 	if Filters.exclusion_enabled("map", mission.map) then
 		return true, "map " .. tostring(mission.map), map_display_name(mission.map)
+	end
+
+	local side = mission.side_mission or mission.sideMission
+
+	if side and Filters.exclusion_enabled("side", side) then
+		return true, "side " .. tostring(side), side_display_name(side)
 	end
 
 	local voices, giver = Missions.mission_voice_keys(mission)

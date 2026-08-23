@@ -8,6 +8,7 @@ local Missions = mod:io_dofile("Many Mission Terminal/scripts/mods/Many Mission 
 local FILTER_CATEGORIES = C.FILTER_CATEGORIES
 local FILTER_CONDITIONS = C.FILTER_CONDITIONS
 local EXCLUDE_MISSION_TYPES = C.EXCLUDE_MISSION_TYPES
+local EXCLUDE_SIDES = C.EXCLUDE_SIDES
 local mission_is_live = Missions.mission_is_live
 local side_display_name = Missions.side_display_name
 
@@ -139,6 +140,22 @@ function FilterRows.build_exclusions(rows, open)
 	end
 
 	add_group("exclude_group_announcer", announcers)
+
+	local sides = {}
+
+	for i = 1, #EXCLUDE_SIDES do
+		local key = EXCLUDE_SIDES[i]
+
+		sides[#sides + 1] = {
+			kind = "row",
+			exclusion = true,
+			group = "side",
+			key = key,
+			label = side_display_name(key),
+		}
+	end
+
+	add_group("exclude_group_side", sides)
 
 	local chosen = flush()
 

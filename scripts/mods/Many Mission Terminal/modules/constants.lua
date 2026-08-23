@@ -305,6 +305,11 @@ local SIDE_ICONS = {
 	side_mission_tome = "content/ui/materials/icons/pocketables/hud/small/party_scripture",
 }
 
+local EXCLUDE_SIDES = {
+	"side_mission_grimoire",
+	"side_mission_tome",
+}
+
 local ARCHIVE_URL = "https://darktide.dpdns.org/v1/live"
 local ARCHIVE_REFRESH_SECONDS = 600
 local ARCHIVE_RETRY_BASE = 15
@@ -340,6 +345,7 @@ return {
 	CONDITION_ICONS = CONDITION_ICONS,
 	CONDITION_TAGS = CONDITION_TAGS,
 	SIDE_ICONS = SIDE_ICONS,
+	EXCLUDE_SIDES = EXCLUDE_SIDES,
 	BOOKMARK_ICON = BOOKMARK_ICON,
 	GRID_COLS = GRID_COLS,
 	GRID_ROWS = GRID_ROWS,

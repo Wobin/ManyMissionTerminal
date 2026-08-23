@@ -160,6 +160,12 @@ return {
 		ru = "ПРОПУСКАТЬ ГОЛОСА",
 		["zh-tw"] = "跳過語音角色",
 	},
+	exclude_group_side = {
+		en = "SKIP SIDE OBJECTIVES",
+		["zh-cn"] = "跳过支线目标",
+		ru = "ПРОПУСКАТЬ ПОБОЧНЫЕ ЗАДАЧИ",
+		["zh-tw"] = "跳過支線目標",
+	},
 	intercept_skipped = {
 		en = "Skipping {mission} - {why} - searching again",
 		["zh-cn"] = "跳过 {mission} - {why} - 重新搜索",
