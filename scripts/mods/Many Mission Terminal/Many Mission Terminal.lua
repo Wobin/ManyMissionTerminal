@@ -1,7 +1,7 @@
 --[[
 Name: Many Mission Terminal
 Author: Wobin
-Date: 19/08/2026
+Date: 23/08/2026
 Repository: https://github.com/Wobin/ManyMissionTerminal
 --]]
 
