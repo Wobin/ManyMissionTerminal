@@ -1,5 +1,12 @@
 local mod = get_mod("Many Mission Terminal")
-local MMT = get_mod("ManyMoreTry")
+
+local MMT
+
+local function many_more_try()
+	MMT = MMT or get_mod("ManyMoreTry")
+
+	return MMT
+end
 
 local MissionBoardViewSettings = require("scripts/ui/views/mission_board_view/mission_board_view_settings")
 local CircumstanceTemplates = require("scripts/settings/circumstance/circumstance_templates")
@@ -42,7 +49,8 @@ local saved_ids = {}
 local function refresh_saved_ids()
 	table.clear(saved_ids)
 
-	local list = MMT and MMT:is_enabled() and MMT:get("_saved_mission")
+	local mmt = many_more_try()
+	local list = mmt and mmt:is_enabled() and mmt:get("_saved_mission")
 
 	if not list then
 		return

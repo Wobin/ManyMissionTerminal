@@ -26,7 +26,8 @@ slots for.
   **Cross** toggles a row or opens a section, and **B** closes the panel.
 - **Quickplay screening.** When Exclusions are set, the mod inspects each mission you are matched into
   before the map loads. If it matches an exclusion it leaves the party and searches again, and it
-  remembers what it rejected so the same mission is not retried.
+  remembers what it rejected so the same mission is not retried. The Filters tab only changes what the
+  board shows unless **Quickplay Follows Filters** is on.
 - **Recently expired missions** stay joinable for a grace window and are listed under the live ones.
 - **Bookmarks.** If [Many More Try](https://www.nexusmods.com/warhammer40kdarktide/mods/376) is
   installed, missions you have saved with it are marked in the list.
@@ -39,7 +40,12 @@ On the mission board's own options page:
   that is already underway.
 - **Only Play Event Missions** - Quickplay will leave and search again unless the mission is an Event
   mission. While this is on, Quickplay keeps searching indefinitely rather than stopping after eight
-  requeues.
+  requeues. It goes idle when no Event missions are running at your difficulty, so it cannot leave you
+  searching for something that does not exist.
+- **Quickplay Follows Filters** - Quickplay will leave and search again unless the mission is one the
+  Filters tab would show on the board, so mission type, condition and side objective all apply to
+  matchmaking and not just the board. While this is on, Quickplay keeps searching indefinitely rather
+  than stopping after eight requeues.
 
 In the mod options menu:
 

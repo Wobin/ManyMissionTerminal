@@ -1,7 +1,7 @@
 {
 	"name": "Many Mission Terminal",
 	"description": "Shows every joinable mission on the mission board, with a filter panel and a sortable mission list.",
-	"version": "2.1.0",
+	"version": "2.2.0",
 	"author": "Wobin",
 	"homepage": "https://www.nexusmods.com/warhammer40kdarktide/mods/1174",
 	"source": "https://github.com/Wobin/ManyMissionTerminal",

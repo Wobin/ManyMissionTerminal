@@ -20,6 +20,9 @@ local exclusion_total
 local conditions_by_circumstance
 local skip_backfill
 local event_only
+local follow_filters
+local event_pool
+local event_notice
 
 local function filters()
 	if not filter_state then
@@ -221,6 +224,10 @@ function Filters.conditions_for_circumstance(circumstance)
 end
 
 function Filters.mission_excluded(mission)
+	if Filters.follow_filters() and not Filters.passes_board(mission, true) then
+		return true, "fails the board filters", mod:localize("intercept_why_filters")
+	end
+
 	if Filters.exclusion_count() == 0 then
 		return false, "no exclusions set"
 	end
@@ -294,8 +301,68 @@ end
 
 function Filters.set_event_only(value)
 	event_only = value == true
+	event_notice = false
 
 	mod:set("_event_only", event_only, false)
+end
+
+function Filters.event_pool()
+	return event_pool
+end
+
+function Filters.scan_event_pool(logic)
+	local mission_data = logic and logic._mission_data
+	local page = logic and logic:get_current_page()
+	local page_filter = page and page.filter and {
+		page.filter,
+	}
+
+	if not mission_data or not page_filter then
+		return
+	end
+
+	local count = 0
+
+	for i = 1, #mission_data do
+		local mission = mission_data[i]
+
+		if mission.category == "event" and logic:_mission_passes_all_filters(mission, page_filter) then
+			count = count + 1
+		end
+	end
+
+	if count ~= event_pool then
+		event_pool = count
+		event_notice = false
+	end
+end
+
+function Filters.event_only_active()
+	return Filters.event_only() and (event_pool == nil or event_pool > 0)
+end
+
+function Filters.event_notice_due()
+	if not Filters.event_only() or event_notice or event_pool == nil or event_pool > 0 then
+		return false
+	end
+
+	event_notice = true
+
+	return true
+end
+
+function Filters.follow_filters()
+	if follow_filters == nil then
+		follow_filters = mod:get("_follow_filters") == true
+	end
+
+	return follow_filters
+end
+
+function Filters.set_follow_filters(value)
+	follow_filters = value == true
+
+	mod:set("_follow_filters", follow_filters, false)
 end
 
 function Filters.set_skip_backfill(value)
@@ -309,6 +376,10 @@ function Filters.passes(mission)
 		return false
 	end
 
+	return Filters.passes_board(mission)
+end
+
+function Filters.passes_board(mission, ignore_state)
 	if not Filters.enabled("category", mission.category) then
 		return false
 	end
@@ -353,7 +424,7 @@ function Filters.passes(mission)
 		return false
 	end
 
-	if not Filters.enabled("state", "expired") and not mission_is_live(mission) then
+	if not ignore_state and not Filters.enabled("state", "expired") and not mission_is_live(mission) then
 		return false
 	end
 

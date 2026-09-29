@@ -172,6 +172,18 @@ return {
 		ru = "ПРОПУСК: {mission} - {why} - НОВЫЙ ПОИСК",
 		["zh-tw"] = "跳過 {mission} - {why} - 重新搜尋",
 	},
+	event_pool_empty = {
+		en = "No Event missions are running - Only Play Event Missions is idle",
+		["zh-cn"] = "当前没有活动任务 - 仅进行活动任务已停用",
+		ru = "СОБЫТИЙНЫХ МИССИЙ НЕТ - РЕЖИМ ТОЛЬКО СОБЫТИЙ НЕ АКТИВЕН",
+		["zh-tw"] = "目前沒有活動任務 - 僅進行活動任務已停用",
+	},
+	intercept_why_filters = {
+		en = "board filters",
+		["zh-cn"] = "任务板筛选",
+		ru = "ФИЛЬТРЫ ДОСКИ",
+		["zh-tw"] = "任務板篩選",
+	},
 	intercept_unchecked = {
 		en = "Could not check this mission against Exclusions - joining",
 		["zh-cn"] = "无法对照排除项检查此任务 - 加入中",

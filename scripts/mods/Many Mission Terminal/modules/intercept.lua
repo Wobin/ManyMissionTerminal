@@ -13,6 +13,7 @@ local is_excluded_fn
 local has_exclusions_fn
 local skip_backfill_fn
 local event_only_fn
+local forever_fn
 local notify_skips_fn
 local installed = false
 local session_id
@@ -79,6 +80,10 @@ local function armed()
 	end
 
 	if event_only_fn and event_only_fn() then
+		return true
+	end
+
+	if forever_fn and forever_fn() then
 		return true
 	end
 
@@ -213,6 +218,7 @@ local function do_reject()
 	local label = rejected_sessions[session_id] or "?"
 
 	local search_forever = event_only_fn ~= nil and event_only_fn()
+		or forever_fn ~= nil and forever_fn()
 
 	if not search_forever and requeue_count >= REQUEUE_LIMIT then
 		if notify_skips_fn == nil or notify_skips_fn() then
@@ -307,16 +313,18 @@ function Intercept.debug_state()
 		has_exclusions = has_exclusions_fn ~= nil and has_exclusions_fn(),
 		skip_backfill = skip_backfill_fn ~= nil and skip_backfill_fn(),
 		event_only = event_only_fn ~= nil and event_only_fn(),
+		follow_filters = forever_fn ~= nil and forever_fn(),
 		notify_skips = notify_skips_fn ~= nil and notify_skips_fn(),
 		installed = installed,
 	}
 end
 
-function Intercept.install(predicate, has_exclusions, skip_backfill, notify_skips, event_only)
+function Intercept.install(predicate, has_exclusions, skip_backfill, notify_skips, event_only, search_forever)
 	is_excluded_fn = predicate
 	has_exclusions_fn = has_exclusions
 	skip_backfill_fn = skip_backfill
 	event_only_fn = event_only
+	forever_fn = search_forever
 	notify_skips_fn = notify_skips
 
 	if installed then

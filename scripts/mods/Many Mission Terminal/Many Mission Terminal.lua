@@ -1,14 +1,13 @@
 --[[
 Name: Many Mission Terminal
 Author: Wobin
-Date: 23/08/2026
+Date: 29/09/2026
 Repository: https://github.com/Wobin/ManyMissionTerminal
 --]]
 
 local mod = get_mod("Many Mission Terminal")
 mod.version = mod.get_metadata and mod:get_metadata("version") or "unknown"
 
-local MMT = get_mod("ManyMoreTry")
 local MissionBoardViewSettings = require("scripts/ui/views/mission_board_view/mission_board_view_settings")
 local CircumstanceTemplates = require("scripts/settings/circumstance/circumstance_templates")
 local MissionTemplates = require("scripts/settings/mission/mission_templates")
@@ -386,10 +385,10 @@ mod.on_all_mods_loaded = function ()
 	Grid.apply_slots(show_all_missions)
 
 	Intercept.install(Filters.mission_excluded, function ()
-		return Filters.exclusion_count() > 0
+		return Filters.exclusion_count() > 0 or Filters.follow_filters()
 	end, Filters.skip_backfill, function ()
 		return notify_skips
-	end, Filters.event_only)
+	end, Filters.event_only_active, Filters.follow_filters)
 end
 
 mod:add_global_localize_strings({
@@ -412,10 +411,22 @@ mod:add_global_localize_strings({
 		["zh-tw"] = "僅進行活動任務",
 	},
 	loc_mmterm_event_only_desc = {
-		en = "Quickplay will leave and search again unless the mission is an Event mission.",
+		en = "Quickplay will leave and search again unless the mission is an Event mission. It does nothing while no Event missions are running.",
 		["zh-cn"] = "快速游戏若匹配到非活动任务，将退出并重新搜索。",
 		ru = "Если быстрая игра подберёт не событийную миссию, поиск начнётся заново.",
 		["zh-tw"] = "快速遊戲若匹配到非活動任務，將退出並重新搜尋。",
+	},
+	loc_mmterm_follow_filters = {
+		en = "Quickplay Follows Filters",
+		["zh-cn"] = "快速游戏遵循筛选",
+		ru = "Быстрая игра по фильтрам",
+		["zh-tw"] = "快速遊戲遵循篩選",
+	},
+	loc_mmterm_follow_filters_desc = {
+		en = "Quickplay will leave and search again unless the mission is one the Filters tab would show on the board.",
+		["zh-cn"] = "快速游戏若匹配到筛选页不会显示的任务，将退出并重新搜索。",
+		ru = "Если быстрая игра подберёт миссию, скрытую фильтрами, поиск начнётся заново.",
+		["zh-tw"] = "快速遊戲若匹配到篩選頁不會顯示的任務，將退出並重新搜尋。",
 	},
 })
 
@@ -445,6 +456,20 @@ mod:hook(CLASS.ViewElemenMissionBoardOptions, "present", function (func, self, p
 			end,
 			on_activated = function (value)
 				Filters.set_event_only(value)
+				Intercept.cancel()
+			end,
+		}
+		presentation_data[#presentation_data + 1] = {
+			display_name = "loc_mmterm_follow_filters",
+			id = "mmterm_follow_filters",
+			tooltip_text = "loc_mmterm_follow_filters_desc",
+			widget_type = "checkbox",
+			start_value = Filters.follow_filters(),
+			get_function = function ()
+				return Filters.follow_filters()
+			end,
+			on_activated = function (value)
+				Filters.set_follow_filters(value)
 				Intercept.cancel()
 			end,
 		}
@@ -626,6 +651,12 @@ mod:hook_safe(CLASS.MissionBoardViewLogic, "refresh_filtered_missions", function
 	refresh_now()
 	Grid.rebuild_map_missions(self)
 	Panel.mark_scan_dirty()
+	Filters.scan_event_pool(self)
+
+	if Filters.event_notice_due() then
+		mod:notify(mod:localize("event_pool_empty"))
+	end
+
 	layout_dirty = true
 end)
 

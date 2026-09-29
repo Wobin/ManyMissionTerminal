@@ -143,13 +143,16 @@ local function pack_voice_keys(mission, giver, keys)
 		return keys
 	end
 
+	local skip = pack.skip_voices
+
 	for i = 1, #pack do
 		local settings = DialogueBreedSettings[pack[i]]
 		local voices = settings and settings.wwise_voices
 
 		if voices then
 			for j = 1, #voices do
-				local key = giver_key(voices[j])
+				local profile = voices[j]
+				local key = not (skip and skip[profile]) and giver_key(profile)
 
 				if key then
 					keys[key] = true
