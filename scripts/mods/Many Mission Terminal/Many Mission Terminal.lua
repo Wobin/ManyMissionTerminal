@@ -1,7 +1,7 @@
 --[[
 Name: Many Mission Terminal
 Author: Wobin
-Date: 29/09/2026
+Date: 31/10/2026
 Repository: https://github.com/Wobin/ManyMissionTerminal
 --]]
 
@@ -352,6 +352,28 @@ local MMT_INPUT_SETTING = {
 
 local view_input_settings
 
+local function rework_view_input_service()
+	local services = Managers.input and Managers.input._input_services
+	local service = services and services.View
+
+	if not service or type(service.on_reload) ~= "function" then
+		return
+	end
+
+	local service_aliases = service._aliases or {}
+
+	for i = 1, #MMT_INPUT_ACTIONS do
+		local setting = view_input_settings.settings[MMT_INPUT_ACTIONS[i]]
+		local key_alias = setting and setting.key_alias
+
+		if key_alias and not service_aliases[key_alias] then
+			return
+		end
+	end
+
+	service:on_reload()
+end
+
 local function install_input_alias(enabled)
 	if not view_input_settings then
 		return
@@ -368,6 +390,8 @@ local function install_input_alias(enabled)
 		else
 			aliases._aliases.mmterm_filter_board = nil
 		end
+
+		rework_view_input_service()
 	end
 end
 
@@ -384,11 +408,19 @@ mod.on_all_mods_loaded = function ()
 	update_input_alias()
 	Grid.apply_slots(show_all_missions)
 
-	Intercept.install(Filters.mission_excluded, function ()
-		return Filters.exclusion_count() > 0 or Filters.follow_filters()
-	end, Filters.skip_backfill, function ()
-		return notify_skips
-	end, Filters.event_only_active, Filters.follow_filters)
+	Intercept.install({
+		predicate = Filters.mission_excluded,
+		has_exclusions = function ()
+			return Filters.exclusion_count() > 0 or Filters.follow_filters()
+		end,
+		skip_backfill = Filters.skip_backfill,
+		notify_skips = function ()
+			return notify_skips
+		end,
+		event_only = Filters.event_only_active,
+		search_forever = Filters.follow_filters,
+		squad_exempt = Filters.squad_exempt,
+	})
 end
 
 mod:add_global_localize_strings({
@@ -427,6 +459,18 @@ mod:add_global_localize_strings({
 		["zh-cn"] = "快速游戏若匹配到筛选页不会显示的任务，将退出并重新搜索。",
 		ru = "Если быстрая игра подберёт миссию, скрытую фильтрами, поиск начнётся заново.",
 		["zh-tw"] = "快速遊戲若匹配到篩選頁不會顯示的任務，將退出並重新搜尋。",
+	},
+	loc_mmterm_squad_exempt = {
+		en = "Ignore All Of The Above In A Squad",
+		["zh-cn"] = "组队时忽略以上所有设置",
+		ru = "Игнорировать всё вышеперечисленное в отряде",
+		["zh-tw"] = "組隊時忽略以上所有設定",
+	},
+	loc_mmterm_squad_exempt_desc = {
+		en = "While you have squad members, Quickplay takes whatever it is given. Leaving and searching again would drop you out of your squad, not just out of the queue. Does not affect the board or the Filters tab.",
+		["zh-cn"] = "有队友时，快速游戏将接受任何匹配结果，因为退出并重新搜索会使你脱离队伍，而非仅退出匹配。不影响任务面板或筛选页。",
+		ru = "Пока в отряде есть другие игроки, быстрая игра принимает любую миссию: выход и повторный поиск выбросили бы вас из отряда, а не только из очереди. Не влияет на доску и вкладку фильтров.",
+		["zh-tw"] = "有隊友時，快速遊戲將接受任何匹配結果，因為退出並重新搜尋會使你脫離隊伍，而非僅退出匹配。不影響任務面板或篩選頁。",
 	},
 })
 
@@ -470,6 +514,20 @@ mod:hook(CLASS.ViewElemenMissionBoardOptions, "present", function (func, self, p
 			end,
 			on_activated = function (value)
 				Filters.set_follow_filters(value)
+				Intercept.cancel()
+			end,
+		}
+		presentation_data[#presentation_data + 1] = {
+			display_name = "loc_mmterm_squad_exempt",
+			id = "mmterm_squad_exempt",
+			tooltip_text = "loc_mmterm_squad_exempt_desc",
+			widget_type = "checkbox",
+			start_value = Filters.squad_exempt(),
+			get_function = function ()
+				return Filters.squad_exempt()
+			end,
+			on_activated = function (value)
+				Filters.set_squad_exempt(value)
 				Intercept.cancel()
 			end,
 		}

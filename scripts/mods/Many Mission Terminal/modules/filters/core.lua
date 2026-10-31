@@ -21,6 +21,7 @@ local conditions_by_circumstance
 local skip_backfill
 local event_only
 local follow_filters
+local squad_exempt
 local event_pool
 local event_notice
 
@@ -139,7 +140,11 @@ function Filters.set(group, key, value)
 end
 
 function Filters.exclusion_enabled(group, key)
-	local group_state = key ~= nil and exclusions()[group]
+	if key == nil then
+		return false
+	end
+
+	local group_state = exclusions()[group]
 
 	return group_state ~= nil and group_state[key] == true
 end
@@ -363,6 +368,20 @@ function Filters.set_follow_filters(value)
 	follow_filters = value == true
 
 	mod:set("_follow_filters", follow_filters, false)
+end
+
+function Filters.squad_exempt()
+	if squad_exempt == nil then
+		squad_exempt = mod:get("_squad_exempt") ~= false
+	end
+
+	return squad_exempt
+end
+
+function Filters.set_squad_exempt(value)
+	squad_exempt = value == true
+
+	mod:set("_squad_exempt", squad_exempt, false)
 end
 
 function Filters.set_skip_backfill(value)

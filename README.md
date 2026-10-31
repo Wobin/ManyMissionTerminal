@@ -27,7 +27,8 @@ slots for.
 - **Quickplay screening.** When Exclusions are set, the mod inspects each mission you are matched into
   before the map loads. If it matches an exclusion it leaves the party and searches again, and it
   remembers what it rejected so the same mission is not retried. The Filters tab only changes what the
-  board shows unless **Quickplay Follows Filters** is on.
+  board shows unless **Quickplay Follows Filters** is on. Screening is off by default while you are in a
+  squad, because leaving the party to search again would break the squad up.
 - **Recently expired missions** stay joinable for a grace window and are listed under the live ones.
 - **Bookmarks.** If [Many More Try](https://www.nexusmods.com/warhammer40kdarktide/mods/376) is
   installed, missions you have saved with it are marked in the list.
@@ -46,6 +47,11 @@ On the mission board's own options page:
   Filters tab would show on the board, so mission type, condition and side objective all apply to
   matchmaking and not just the board. While this is on, Quickplay keeps searching indefinitely rather
   than stopping after eight requeues.
+- **Ignore All Of The Above In A Squad** - on by default. While you have squad members, Quickplay takes
+  whatever it is given and none of the three options above apply. Screening works by leaving the party
+  and searching again, which drops you out of your squad rather than just out of the queue, so there is
+  no way to screen a squad's matchmaking without breaking the squad up. Turn this off only if you are
+  willing to be ejected from your squad mid-search. It does not affect the board or the Filters tab.
 
 In the mod options menu:
 

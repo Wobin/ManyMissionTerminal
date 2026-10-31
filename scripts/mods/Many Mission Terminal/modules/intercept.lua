@@ -14,6 +14,7 @@ local has_exclusions_fn
 local skip_backfill_fn
 local event_only_fn
 local forever_fn
+local squad_exempt_fn
 local notify_skips_fn
 local installed = false
 local session_id
@@ -41,6 +42,12 @@ local function current_session_id()
 	local pi = party()
 
 	return pi and pi:current_game_session_id()
+end
+
+local function in_squad()
+	local pi = party()
+
+	return pi ~= nil and pi:num_other_members() > 0
 end
 
 local function is_quickplay()
@@ -72,6 +79,10 @@ local function armed()
 	end
 
 	if not is_quickplay() then
+		return false
+	end
+
+	if squad_exempt_fn ~= nil and squad_exempt_fn() and in_squad() then
 		return false
 	end
 
@@ -314,18 +325,21 @@ function Intercept.debug_state()
 		skip_backfill = skip_backfill_fn ~= nil and skip_backfill_fn(),
 		event_only = event_only_fn ~= nil and event_only_fn(),
 		follow_filters = forever_fn ~= nil and forever_fn(),
+		squad_exempt = squad_exempt_fn ~= nil and squad_exempt_fn(),
+		in_squad = in_squad(),
 		notify_skips = notify_skips_fn ~= nil and notify_skips_fn(),
 		installed = installed,
 	}
 end
 
-function Intercept.install(predicate, has_exclusions, skip_backfill, notify_skips, event_only, search_forever)
-	is_excluded_fn = predicate
-	has_exclusions_fn = has_exclusions
-	skip_backfill_fn = skip_backfill
-	event_only_fn = event_only
-	forever_fn = search_forever
-	notify_skips_fn = notify_skips
+function Intercept.install(opts)
+	is_excluded_fn = opts.predicate
+	has_exclusions_fn = opts.has_exclusions
+	skip_backfill_fn = opts.skip_backfill
+	event_only_fn = opts.event_only
+	forever_fn = opts.search_forever
+	squad_exempt_fn = opts.squad_exempt
+	notify_skips_fn = opts.notify_skips
 
 	if installed then
 		return
